@@ -95,54 +95,54 @@ bool OpenALStream::Start()
 		
 		if (UseEFX)
 		  WARN_LOG(AUDIO, "Number of effects sends: %i", iSends);
-				
-		// Get EFX function pointers
-		//if (alcIsExtensionPresent(pDevice, (ALCchar*)ALC_EXT_EFX_NAME))
-		//{
-		//	alGenEffects = (LPALGENEFFECTS)alGetProcAddress("alGenEffects");
-		//	alDeleteEffects = (LPALDELETEEFFECTS)alGetProcAddress("alDeleteEffects");
-		//	alIsEffect = (LPALISEFFECT)alGetProcAddress("alIsEffect");
-		//	alEffecti = (LPALEFFECTI)alGetProcAddress("alEffecti");
-		//	alEffectiv = (LPALEFFECTIV)alGetProcAddress("alEffectiv");
-		//	alEffectf = (LPALEFFECTF)alGetProcAddress("alEffectf");
-		//	alEffectfv = (LPALEFFECTFV)alGetProcAddress("alEffectfv");
-		//	alGetEffecti = (LPALGETEFFECTI)alGetProcAddress("alGetEffecti");
-		//	alGetEffectiv = (LPALGETEFFECTIV)alGetProcAddress("alGetEffectiv");
-		//	alGetEffectf = (LPALGETEFFECTF)alGetProcAddress("alGetEffectf");
-		//	alGetEffectfv = (LPALGETEFFECTFV)alGetProcAddress("alGetEffectfv");
-		//	alGenFilters = (LPALGENFILTERS)alGetProcAddress("alGenFilters");
-		//	alDeleteFilters = (LPALDELETEFILTERS)alGetProcAddress("alDeleteFilters");
-		//	alIsFilter = (LPALISFILTER)alGetProcAddress("alIsFilter");
-		//	alFilteri = (LPALFILTERI)alGetProcAddress("alFilteri");
-		//	alFilteriv = (LPALFILTERIV)alGetProcAddress("alFilteriv");
-		//	alFilterf = (LPALFILTERF)alGetProcAddress("alFilterf");
-		//	alFilterfv = (LPALFILTERFV)alGetProcAddress("alFilterfv");
-		//	alGetFilteri = (LPALGETFILTERI)alGetProcAddress("alGetFilteri");
-		//	alGetFilteriv = (LPALGETFILTERIV)alGetProcAddress("alGetFilteriv");
-		//	alGetFilterf = (LPALGETFILTERF)alGetProcAddress("alGetFilterf");
-		//	alGetFilterfv = (LPALGETFILTERFV)alGetProcAddress("alGetFilterfv");
-		//	alGenAuxiliaryEffectSlots = (LPALGENAUXILIARYEFFECTSLOTS)alGetProcAddress("alGenAuxiliaryEffectSlots");
-		//	alDeleteAuxiliaryEffectSlots = (LPALDELETEAUXILIARYEFFECTSLOTS)alGetProcAddress("alDeleteAuxiliaryEffectSlots");
-		//	alIsAuxiliaryEffectSlot = (LPALISAUXILIARYEFFECTSLOT)alGetProcAddress("alIsAuxiliaryEffectSlot");
-		//	alAuxiliaryEffectSloti = (LPALAUXILIARYEFFECTSLOTI)alGetProcAddress("alAuxiliaryEffectSloti");
-		//	alAuxiliaryEffectSlotiv = (LPALAUXILIARYEFFECTSLOTIV)alGetProcAddress("alAuxiliaryEffectSlotiv");
-		//	alAuxiliaryEffectSlotf = (LPALAUXILIARYEFFECTSLOTF)alGetProcAddress("alAuxiliaryEffectSlotf");
-		//	alAuxiliaryEffectSlotfv = (LPALAUXILIARYEFFECTSLOTFV)alGetProcAddress("alAuxiliaryEffectSlotfv");
-		//	alGetAuxiliaryEffectSloti = (LPALGETAUXILIARYEFFECTSLOTI)alGetProcAddress("alGetAuxiliaryEffectSloti");
-		//	alGetAuxiliaryEffectSlotiv = (LPALGETAUXILIARYEFFECTSLOTIV)alGetProcAddress("alGetAuxiliaryEffectSlotiv");
-		//	alGetAuxiliaryEffectSlotf = (LPALGETAUXILIARYEFFECTSLOTF)alGetProcAddress("alGetAuxiliaryEffectSlotf");
-		//	alGetAuxiliaryEffectSlotfv = (LPALGETAUXILIARYEFFECTSLOTFV)alGetProcAddress("alGetAuxiliaryEffectSlotfv");
 
-		//	if (alGenEffects &&	alDeleteEffects && alIsEffect && alEffecti && alEffectiv &&	alEffectf &&
-		//		alEffectfv && alGetEffecti && alGetEffectiv && alGetEffectf && alGetEffectfv &&	alGenFilters &&
-		//		alDeleteFilters && alIsFilter && alFilteri && alFilteriv &&	alFilterf && alFilterfv &&
-		//		alGetFilteri &&	alGetFilteriv && alGetFilterf && alGetFilterfv && alGenAuxiliaryEffectSlots &&
-		//		alDeleteAuxiliaryEffectSlots &&	alIsAuxiliaryEffectSlot && alAuxiliaryEffectSloti &&
-		//		alAuxiliaryEffectSlotiv && alAuxiliaryEffectSlotf && alAuxiliaryEffectSlotfv &&
-		//		alGetAuxiliaryEffectSloti && alGetAuxiliaryEffectSlotiv && alGetAuxiliaryEffectSlotf &&
-		//		alGetAuxiliaryEffectSlotfv)
-		//		bEFXSupport = AL_TRUE;
-		//}
+        // Get EFX function pointers
+        if (alcIsExtensionPresent(pDevice, (ALCchar*)ALC_EXT_EFX_NAME))
+        {
+          alGenEffects = (LPALGENEFFECTS)alGetProcAddress("alGenEffects");
+          alDeleteEffects = (LPALDELETEEFFECTS)alGetProcAddress("alDeleteEffects");
+          alIsEffect = (LPALISEFFECT)alGetProcAddress("alIsEffect");
+          alEffecti = (LPALEFFECTI)alGetProcAddress("alEffecti");
+          alEffectiv = (LPALEFFECTIV)alGetProcAddress("alEffectiv");
+          alEffectf = (LPALEFFECTF)alGetProcAddress("alEffectf");
+          alEffectfv = (LPALEFFECTFV)alGetProcAddress("alEffectfv");
+          alGetEffecti = (LPALGETEFFECTI)alGetProcAddress("alGetEffecti");
+          alGetEffectiv = (LPALGETEFFECTIV)alGetProcAddress("alGetEffectiv");
+          alGetEffectf = (LPALGETEFFECTF)alGetProcAddress("alGetEffectf");
+          alGetEffectfv = (LPALGETEFFECTFV)alGetProcAddress("alGetEffectfv");
+          alGenFilters = (LPALGENFILTERS)alGetProcAddress("alGenFilters");
+          alDeleteFilters = (LPALDELETEFILTERS)alGetProcAddress("alDeleteFilters");
+          alIsFilter = (LPALISFILTER)alGetProcAddress("alIsFilter");
+          alFilteri = (LPALFILTERI)alGetProcAddress("alFilteri");
+          alFilteriv = (LPALFILTERIV)alGetProcAddress("alFilteriv");
+          alFilterf = (LPALFILTERF)alGetProcAddress("alFilterf");
+          alFilterfv = (LPALFILTERFV)alGetProcAddress("alFilterfv");
+          alGetFilteri = (LPALGETFILTERI)alGetProcAddress("alGetFilteri");
+          alGetFilteriv = (LPALGETFILTERIV)alGetProcAddress("alGetFilteriv");
+          alGetFilterf = (LPALGETFILTERF)alGetProcAddress("alGetFilterf");
+          alGetFilterfv = (LPALGETFILTERFV)alGetProcAddress("alGetFilterfv");
+          alGenAuxiliaryEffectSlots = (LPALGENAUXILIARYEFFECTSLOTS)alGetProcAddress("alGenAuxiliaryEffectSlots");
+          alDeleteAuxiliaryEffectSlots = (LPALDELETEAUXILIARYEFFECTSLOTS)alGetProcAddress("alDeleteAuxiliaryEffectSlots");
+          alIsAuxiliaryEffectSlot = (LPALISAUXILIARYEFFECTSLOT)alGetProcAddress("alIsAuxiliaryEffectSlot");
+          alAuxiliaryEffectSloti = (LPALAUXILIARYEFFECTSLOTI)alGetProcAddress("alAuxiliaryEffectSloti");
+          alAuxiliaryEffectSlotiv = (LPALAUXILIARYEFFECTSLOTIV)alGetProcAddress("alAuxiliaryEffectSlotiv");
+          alAuxiliaryEffectSlotf = (LPALAUXILIARYEFFECTSLOTF)alGetProcAddress("alAuxiliaryEffectSlotf");
+          alAuxiliaryEffectSlotfv = (LPALAUXILIARYEFFECTSLOTFV)alGetProcAddress("alAuxiliaryEffectSlotfv");
+          alGetAuxiliaryEffectSloti = (LPALGETAUXILIARYEFFECTSLOTI)alGetProcAddress("alGetAuxiliaryEffectSloti");
+          alGetAuxiliaryEffectSlotiv = (LPALGETAUXILIARYEFFECTSLOTIV)alGetProcAddress("alGetAuxiliaryEffectSlotiv");
+          alGetAuxiliaryEffectSlotf = (LPALGETAUXILIARYEFFECTSLOTF)alGetProcAddress("alGetAuxiliaryEffectSlotf");
+          alGetAuxiliaryEffectSlotfv = (LPALGETAUXILIARYEFFECTSLOTFV)alGetProcAddress("alGetAuxiliaryEffectSlotfv");
+
+          if (alGenEffects &&	alDeleteEffects && alIsEffect && alEffecti && alEffectiv &&	alEffectf &&
+            alEffectfv && alGetEffecti && alGetEffectiv && alGetEffectf && alGetEffectfv &&	alGenFilters &&
+            alDeleteFilters && alIsFilter && alFilteri && alFilteriv &&	alFilterf && alFilterfv &&
+            alGetFilteri &&	alGetFilteriv && alGetFilterf && alGetFilterfv && alGenAuxiliaryEffectSlots &&
+            alDeleteAuxiliaryEffectSlots &&	alIsAuxiliaryEffectSlot && alAuxiliaryEffectSloti &&
+            alAuxiliaryEffectSlotiv && alAuxiliaryEffectSlotf && alAuxiliaryEffectSlotfv &&
+            alGetAuxiliaryEffectSloti && alGetAuxiliaryEffectSlotiv && alGetAuxiliaryEffectSlotf &&
+            alGetAuxiliaryEffectSlotfv)
+              bEFXSupport = AL_TRUE;
+        }
         thread = std::thread(&OpenALStream::SoundLoop, this);
         bReturn = true;
       }
@@ -285,51 +285,6 @@ void OpenALStream::SoundLoop()
 
   memset(uiBuffers, 0, numBuffers * sizeof(ALuint));
   uiSource = 0;
-  
-  // EFX Support
-  	alGenEffects = (LPALGENEFFECTS)alGetProcAddress("alGenEffects");
-	alDeleteEffects = (LPALDELETEEFFECTS)alGetProcAddress("alDeleteEffects");
-	alIsEffect = (LPALISEFFECT)alGetProcAddress("alIsEffect");
-	alEffecti = (LPALEFFECTI)alGetProcAddress("alEffecti");
-	alEffectiv = (LPALEFFECTIV)alGetProcAddress("alEffectiv");
-	alEffectf = (LPALEFFECTF)alGetProcAddress("alEffectf");
-	alEffectfv = (LPALEFFECTFV)alGetProcAddress("alEffectfv");
-	alGetEffecti = (LPALGETEFFECTI)alGetProcAddress("alGetEffecti");
-	alGetEffectiv = (LPALGETEFFECTIV)alGetProcAddress("alGetEffectiv");
-	alGetEffectf = (LPALGETEFFECTF)alGetProcAddress("alGetEffectf");
-	alGetEffectfv = (LPALGETEFFECTFV)alGetProcAddress("alGetEffectfv");
-	alGenFilters = (LPALGENFILTERS)alGetProcAddress("alGenFilters");
-	alDeleteFilters = (LPALDELETEFILTERS)alGetProcAddress("alDeleteFilters");
-	alIsFilter = (LPALISFILTER)alGetProcAddress("alIsFilter");
-	alFilteri = (LPALFILTERI)alGetProcAddress("alFilteri");
-	alFilteriv = (LPALFILTERIV)alGetProcAddress("alFilteriv");
-	alFilterf = (LPALFILTERF)alGetProcAddress("alFilterf");
-	alFilterfv = (LPALFILTERFV)alGetProcAddress("alFilterfv");
-	alGetFilteri = (LPALGETFILTERI)alGetProcAddress("alGetFilteri");
-	alGetFilteriv = (LPALGETFILTERIV)alGetProcAddress("alGetFilteriv");
-	alGetFilterf = (LPALGETFILTERF)alGetProcAddress("alGetFilterf");
-	alGetFilterfv = (LPALGETFILTERFV)alGetProcAddress("alGetFilterfv");
-	alGenAuxiliaryEffectSlots = (LPALGENAUXILIARYEFFECTSLOTS)alGetProcAddress("alGenAuxiliaryEffectSlots");
-	alDeleteAuxiliaryEffectSlots = (LPALDELETEAUXILIARYEFFECTSLOTS)alGetProcAddress("alDeleteAuxiliaryEffectSlots");
-	alIsAuxiliaryEffectSlot = (LPALISAUXILIARYEFFECTSLOT)alGetProcAddress("alIsAuxiliaryEffectSlot");
-	alAuxiliaryEffectSloti = (LPALAUXILIARYEFFECTSLOTI)alGetProcAddress("alAuxiliaryEffectSloti");
-	alAuxiliaryEffectSlotiv = (LPALAUXILIARYEFFECTSLOTIV)alGetProcAddress("alAuxiliaryEffectSlotiv");
-	alAuxiliaryEffectSlotf = (LPALAUXILIARYEFFECTSLOTF)alGetProcAddress("alAuxiliaryEffectSlotf");
-	alAuxiliaryEffectSlotfv = (LPALAUXILIARYEFFECTSLOTFV)alGetProcAddress("alAuxiliaryEffectSlotfv");
-	alGetAuxiliaryEffectSloti = (LPALGETAUXILIARYEFFECTSLOTI)alGetProcAddress("alGetAuxiliaryEffectSloti");
-	alGetAuxiliaryEffectSlotiv = (LPALGETAUXILIARYEFFECTSLOTIV)alGetProcAddress("alGetAuxiliaryEffectSlotiv");
-	alGetAuxiliaryEffectSlotf = (LPALGETAUXILIARYEFFECTSLOTF)alGetProcAddress("alGetAuxiliaryEffectSlotf");
-	alGetAuxiliaryEffectSlotfv = (LPALGETAUXILIARYEFFECTSLOTFV)alGetProcAddress("alGetAuxiliaryEffectSlotfv");
-
-	if (alGenEffects &&	alDeleteEffects && alIsEffect && alEffecti && alEffectiv &&	alEffectf &&
-		alEffectfv && alGetEffecti && alGetEffectiv && alGetEffectf && alGetEffectfv &&	alGenFilters &&
-		alDeleteFilters && alIsFilter && alFilteri && alFilteriv &&	alFilterf && alFilterfv &&
-		alGetFilteri &&	alGetFilteriv && alGetFilterf && alGetFilterfv && alGenAuxiliaryEffectSlots &&
-		alDeleteAuxiliaryEffectSlots &&	alIsAuxiliaryEffectSlot && alAuxiliaryEffectSloti &&
-		alAuxiliaryEffectSlotiv && alAuxiliaryEffectSlotf && alAuxiliaryEffectSlotfv &&
-		alGetAuxiliaryEffectSloti && alGetAuxiliaryEffectSlotiv && alGetAuxiliaryEffectSlotf &&
-		alGetAuxiliaryEffectSlotfv)
-		bEFXSupport = AL_TRUE;
 
   if (alIsExtensionPresent("AL_EXT_float32"))
     float32_capable = true;
