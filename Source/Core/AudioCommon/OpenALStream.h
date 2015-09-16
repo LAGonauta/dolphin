@@ -6,6 +6,7 @@
 
 #include <thread>
 
+#include <math.h>
 #include "AudioCommon/SoundStream.h"
 #include "Common/Event.h"
 #include "Core/Core.h"
@@ -17,6 +18,7 @@
 #include <OpenAL/include/al.h>
 #include <OpenAL/include/alc.h>
 #include <OpenAL/include/alext.h>
+#include <OpenAL/include/efx.h>
 #elif defined __APPLE__
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
@@ -69,6 +71,46 @@
 #define AL_FORMAT_STEREO32 0
 #endif
 
+// EFX Extension function pointer variables
+// Effect objects
+extern LPALGENEFFECTS alGenEffects;
+extern LPALDELETEEFFECTS alDeleteEffects;
+extern LPALISEFFECT alIsEffect;
+extern LPALEFFECTI alEffecti;
+extern LPALEFFECTIV alEffectiv;
+extern LPALEFFECTF alEffectf;
+extern LPALEFFECTFV alEffectfv;
+extern LPALGETEFFECTI alGetEffecti;
+extern LPALGETEFFECTIV alGetEffectiv;
+extern LPALGETEFFECTF alGetEffectf;
+extern LPALGETEFFECTFV alGetEffectfv;
+
+// Filter objects
+extern LPALGENFILTERS alGenFilters;
+extern LPALDELETEFILTERS alDeleteFilters;
+extern LPALISFILTER alIsFilter;
+extern LPALFILTERI alFilteri;
+extern LPALFILTERIV alFilteriv;
+extern LPALFILTERF alFilterf;
+extern LPALFILTERFV alFilterfv;
+extern LPALGETFILTERI alGetFilteri;
+extern LPALGETFILTERIV alGetFilteriv;
+extern LPALGETFILTERF alGetFilterf;
+extern LPALGETFILTERFV alGetFilterfv;
+
+// Auxiliary slot object
+extern LPALGENAUXILIARYEFFECTSLOTS alGenAuxiliaryEffectSlots;
+extern LPALDELETEAUXILIARYEFFECTSLOTS alDeleteAuxiliaryEffectSlots;
+extern LPALISAUXILIARYEFFECTSLOT alIsAuxiliaryEffectSlot;
+extern LPALAUXILIARYEFFECTSLOTI alAuxiliaryEffectSloti;
+extern LPALAUXILIARYEFFECTSLOTIV alAuxiliaryEffectSlotiv;
+extern LPALAUXILIARYEFFECTSLOTF alAuxiliaryEffectSlotf;
+extern LPALAUXILIARYEFFECTSLOTFV alAuxiliaryEffectSlotfv;
+extern LPALGETAUXILIARYEFFECTSLOTI alGetAuxiliaryEffectSloti;
+extern LPALGETAUXILIARYEFFECTSLOTIV alGetAuxiliaryEffectSlotiv;
+extern LPALGETAUXILIARYEFFECTSLOTF alGetAuxiliaryEffectSlotf;
+extern LPALGETAUXILIARYEFFECTSLOTFV alGetAuxiliaryEffectSlotfv;
+
 class OpenALStream final : public SoundStream
 {
 #if defined HAVE_OPENAL && HAVE_OPENAL
@@ -93,7 +135,20 @@ private:
   ALuint uiBuffers[OAL_MAX_BUFFERS];
   ALuint uiSource;
   ALfloat fVolume;
-
+  
   u8 numBuffers;
-#endif  // HAVE_OPENAL
+  
+  // EFX support
+  ALuint uiEffectSlot;
+  ALuint uiEffect;
+  ALuint uiFilter;
+  ALCint iSends = 0;
+  bool UseEFX = false;
+  bool bEFXSupport = false;
+
+  double pitch_correction_cents_total;
+  int pitch_correction_semitones;
+  double pitch_correction_cents;
+
+#endif // HAVE_OPENAL
 };

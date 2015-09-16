@@ -19,6 +19,47 @@
 #pragma comment(lib, "openal32.lib")
 #endif
 
+// Imported EFX functions
+
+// Effect objects
+LPALGENEFFECTS alGenEffects = nullptr;
+LPALDELETEEFFECTS alDeleteEffects = nullptr;
+LPALISEFFECT alIsEffect = nullptr;
+LPALEFFECTI alEffecti = nullptr;
+LPALEFFECTIV alEffectiv = nullptr;
+LPALEFFECTF alEffectf = nullptr;
+LPALEFFECTFV alEffectfv = nullptr;
+LPALGETEFFECTI alGetEffecti = nullptr;
+LPALGETEFFECTIV alGetEffectiv = nullptr;
+LPALGETEFFECTF alGetEffectf = nullptr;
+LPALGETEFFECTFV alGetEffectfv = nullptr;
+
+//Filter objects
+LPALGENFILTERS alGenFilters = nullptr;
+LPALDELETEFILTERS alDeleteFilters = nullptr;
+LPALISFILTER alIsFilter = nullptr;
+LPALFILTERI alFilteri = nullptr;
+LPALFILTERIV alFilteriv = nullptr;
+LPALFILTERF alFilterf = nullptr;
+LPALFILTERFV alFilterfv = nullptr;
+LPALGETFILTERI alGetFilteri = nullptr;
+LPALGETFILTERIV alGetFilteriv = nullptr;
+LPALGETFILTERF alGetFilterf = nullptr;
+LPALGETFILTERFV alGetFilterfv = nullptr;
+
+// Auxiliary slot object
+LPALGENAUXILIARYEFFECTSLOTS alGenAuxiliaryEffectSlots = nullptr;
+LPALDELETEAUXILIARYEFFECTSLOTS alDeleteAuxiliaryEffectSlots = nullptr;
+LPALISAUXILIARYEFFECTSLOT alIsAuxiliaryEffectSlot = nullptr;
+LPALAUXILIARYEFFECTSLOTI alAuxiliaryEffectSloti = nullptr;
+LPALAUXILIARYEFFECTSLOTIV alAuxiliaryEffectSlotiv = nullptr;
+LPALAUXILIARYEFFECTSLOTF alAuxiliaryEffectSlotf = nullptr;
+LPALAUXILIARYEFFECTSLOTFV alAuxiliaryEffectSlotfv = nullptr;
+LPALGETAUXILIARYEFFECTSLOTI alGetAuxiliaryEffectSloti = nullptr;
+LPALGETAUXILIARYEFFECTSLOTIV alGetAuxiliaryEffectSlotiv = nullptr;
+LPALGETAUXILIARYEFFECTSLOTF alGetAuxiliaryEffectSlotf = nullptr;
+LPALGETAUXILIARYEFFECTSLOTFV alGetAuxiliaryEffectSlotfv = nullptr;
+
 static soundtouch::SoundTouch soundTouch;
 
 //
@@ -48,6 +89,60 @@ bool OpenALStream::Start()
         // period_size_in_millisec = 1000 / refresh;
 
         alcMakeContextCurrent(pContext);
+		
+		//EFX support
+		alcGetIntegerv(pDevice, ALC_MAX_AUXILIARY_SENDS, 1, &iSends);
+		
+		if (UseEFX)
+		  WARN_LOG(AUDIO, "Number of effects sends: %i", iSends);
+				
+		// Get EFX function pointers
+		//if (alcIsExtensionPresent(pDevice, (ALCchar*)ALC_EXT_EFX_NAME))
+		//{
+		//	alGenEffects = (LPALGENEFFECTS)alGetProcAddress("alGenEffects");
+		//	alDeleteEffects = (LPALDELETEEFFECTS)alGetProcAddress("alDeleteEffects");
+		//	alIsEffect = (LPALISEFFECT)alGetProcAddress("alIsEffect");
+		//	alEffecti = (LPALEFFECTI)alGetProcAddress("alEffecti");
+		//	alEffectiv = (LPALEFFECTIV)alGetProcAddress("alEffectiv");
+		//	alEffectf = (LPALEFFECTF)alGetProcAddress("alEffectf");
+		//	alEffectfv = (LPALEFFECTFV)alGetProcAddress("alEffectfv");
+		//	alGetEffecti = (LPALGETEFFECTI)alGetProcAddress("alGetEffecti");
+		//	alGetEffectiv = (LPALGETEFFECTIV)alGetProcAddress("alGetEffectiv");
+		//	alGetEffectf = (LPALGETEFFECTF)alGetProcAddress("alGetEffectf");
+		//	alGetEffectfv = (LPALGETEFFECTFV)alGetProcAddress("alGetEffectfv");
+		//	alGenFilters = (LPALGENFILTERS)alGetProcAddress("alGenFilters");
+		//	alDeleteFilters = (LPALDELETEFILTERS)alGetProcAddress("alDeleteFilters");
+		//	alIsFilter = (LPALISFILTER)alGetProcAddress("alIsFilter");
+		//	alFilteri = (LPALFILTERI)alGetProcAddress("alFilteri");
+		//	alFilteriv = (LPALFILTERIV)alGetProcAddress("alFilteriv");
+		//	alFilterf = (LPALFILTERF)alGetProcAddress("alFilterf");
+		//	alFilterfv = (LPALFILTERFV)alGetProcAddress("alFilterfv");
+		//	alGetFilteri = (LPALGETFILTERI)alGetProcAddress("alGetFilteri");
+		//	alGetFilteriv = (LPALGETFILTERIV)alGetProcAddress("alGetFilteriv");
+		//	alGetFilterf = (LPALGETFILTERF)alGetProcAddress("alGetFilterf");
+		//	alGetFilterfv = (LPALGETFILTERFV)alGetProcAddress("alGetFilterfv");
+		//	alGenAuxiliaryEffectSlots = (LPALGENAUXILIARYEFFECTSLOTS)alGetProcAddress("alGenAuxiliaryEffectSlots");
+		//	alDeleteAuxiliaryEffectSlots = (LPALDELETEAUXILIARYEFFECTSLOTS)alGetProcAddress("alDeleteAuxiliaryEffectSlots");
+		//	alIsAuxiliaryEffectSlot = (LPALISAUXILIARYEFFECTSLOT)alGetProcAddress("alIsAuxiliaryEffectSlot");
+		//	alAuxiliaryEffectSloti = (LPALAUXILIARYEFFECTSLOTI)alGetProcAddress("alAuxiliaryEffectSloti");
+		//	alAuxiliaryEffectSlotiv = (LPALAUXILIARYEFFECTSLOTIV)alGetProcAddress("alAuxiliaryEffectSlotiv");
+		//	alAuxiliaryEffectSlotf = (LPALAUXILIARYEFFECTSLOTF)alGetProcAddress("alAuxiliaryEffectSlotf");
+		//	alAuxiliaryEffectSlotfv = (LPALAUXILIARYEFFECTSLOTFV)alGetProcAddress("alAuxiliaryEffectSlotfv");
+		//	alGetAuxiliaryEffectSloti = (LPALGETAUXILIARYEFFECTSLOTI)alGetProcAddress("alGetAuxiliaryEffectSloti");
+		//	alGetAuxiliaryEffectSlotiv = (LPALGETAUXILIARYEFFECTSLOTIV)alGetProcAddress("alGetAuxiliaryEffectSlotiv");
+		//	alGetAuxiliaryEffectSlotf = (LPALGETAUXILIARYEFFECTSLOTF)alGetProcAddress("alGetAuxiliaryEffectSlotf");
+		//	alGetAuxiliaryEffectSlotfv = (LPALGETAUXILIARYEFFECTSLOTFV)alGetProcAddress("alGetAuxiliaryEffectSlotfv");
+
+		//	if (alGenEffects &&	alDeleteEffects && alIsEffect && alEffecti && alEffectiv &&	alEffectf &&
+		//		alEffectfv && alGetEffecti && alGetEffectiv && alGetEffectf && alGetEffectfv &&	alGenFilters &&
+		//		alDeleteFilters && alIsFilter && alFilteri && alFilteriv &&	alFilterf && alFilterfv &&
+		//		alGetFilteri &&	alGetFilteriv && alGetFilterf && alGetFilterfv && alGenAuxiliaryEffectSlots &&
+		//		alDeleteAuxiliaryEffectSlots &&	alIsAuxiliaryEffectSlot && alAuxiliaryEffectSloti &&
+		//		alAuxiliaryEffectSlotiv && alAuxiliaryEffectSlotf && alAuxiliaryEffectSlotfv &&
+		//		alGetAuxiliaryEffectSloti && alGetAuxiliaryEffectSlotiv && alGetAuxiliaryEffectSlotf &&
+		//		alGetAuxiliaryEffectSlotfv)
+		//		bEFXSupport = AL_TRUE;
+		//}
         thread = std::thread(&OpenALStream::SoundLoop, this);
         bReturn = true;
       }
@@ -86,6 +181,15 @@ void OpenALStream::Stop()
 
   alSourceStop(uiSource);
   alSourcei(uiSource, AL_BUFFER, 0);
+
+  // EFX support
+  if (bEFXSupport && UseEFX)
+  {
+    // Clean up effects
+    alDeleteAuxiliaryEffectSlots(1, &uiEffectSlot);
+    alDeleteEffects(1, &uiEffect);
+    alDeleteFilters(1, &uiFilter);
+  }
 
   // Clean up buffers and sources
   alDeleteSources(1, &uiSource);
@@ -181,6 +285,51 @@ void OpenALStream::SoundLoop()
 
   memset(uiBuffers, 0, numBuffers * sizeof(ALuint));
   uiSource = 0;
+  
+  // EFX Support
+  	alGenEffects = (LPALGENEFFECTS)alGetProcAddress("alGenEffects");
+	alDeleteEffects = (LPALDELETEEFFECTS)alGetProcAddress("alDeleteEffects");
+	alIsEffect = (LPALISEFFECT)alGetProcAddress("alIsEffect");
+	alEffecti = (LPALEFFECTI)alGetProcAddress("alEffecti");
+	alEffectiv = (LPALEFFECTIV)alGetProcAddress("alEffectiv");
+	alEffectf = (LPALEFFECTF)alGetProcAddress("alEffectf");
+	alEffectfv = (LPALEFFECTFV)alGetProcAddress("alEffectfv");
+	alGetEffecti = (LPALGETEFFECTI)alGetProcAddress("alGetEffecti");
+	alGetEffectiv = (LPALGETEFFECTIV)alGetProcAddress("alGetEffectiv");
+	alGetEffectf = (LPALGETEFFECTF)alGetProcAddress("alGetEffectf");
+	alGetEffectfv = (LPALGETEFFECTFV)alGetProcAddress("alGetEffectfv");
+	alGenFilters = (LPALGENFILTERS)alGetProcAddress("alGenFilters");
+	alDeleteFilters = (LPALDELETEFILTERS)alGetProcAddress("alDeleteFilters");
+	alIsFilter = (LPALISFILTER)alGetProcAddress("alIsFilter");
+	alFilteri = (LPALFILTERI)alGetProcAddress("alFilteri");
+	alFilteriv = (LPALFILTERIV)alGetProcAddress("alFilteriv");
+	alFilterf = (LPALFILTERF)alGetProcAddress("alFilterf");
+	alFilterfv = (LPALFILTERFV)alGetProcAddress("alFilterfv");
+	alGetFilteri = (LPALGETFILTERI)alGetProcAddress("alGetFilteri");
+	alGetFilteriv = (LPALGETFILTERIV)alGetProcAddress("alGetFilteriv");
+	alGetFilterf = (LPALGETFILTERF)alGetProcAddress("alGetFilterf");
+	alGetFilterfv = (LPALGETFILTERFV)alGetProcAddress("alGetFilterfv");
+	alGenAuxiliaryEffectSlots = (LPALGENAUXILIARYEFFECTSLOTS)alGetProcAddress("alGenAuxiliaryEffectSlots");
+	alDeleteAuxiliaryEffectSlots = (LPALDELETEAUXILIARYEFFECTSLOTS)alGetProcAddress("alDeleteAuxiliaryEffectSlots");
+	alIsAuxiliaryEffectSlot = (LPALISAUXILIARYEFFECTSLOT)alGetProcAddress("alIsAuxiliaryEffectSlot");
+	alAuxiliaryEffectSloti = (LPALAUXILIARYEFFECTSLOTI)alGetProcAddress("alAuxiliaryEffectSloti");
+	alAuxiliaryEffectSlotiv = (LPALAUXILIARYEFFECTSLOTIV)alGetProcAddress("alAuxiliaryEffectSlotiv");
+	alAuxiliaryEffectSlotf = (LPALAUXILIARYEFFECTSLOTF)alGetProcAddress("alAuxiliaryEffectSlotf");
+	alAuxiliaryEffectSlotfv = (LPALAUXILIARYEFFECTSLOTFV)alGetProcAddress("alAuxiliaryEffectSlotfv");
+	alGetAuxiliaryEffectSloti = (LPALGETAUXILIARYEFFECTSLOTI)alGetProcAddress("alGetAuxiliaryEffectSloti");
+	alGetAuxiliaryEffectSlotiv = (LPALGETAUXILIARYEFFECTSLOTIV)alGetProcAddress("alGetAuxiliaryEffectSlotiv");
+	alGetAuxiliaryEffectSlotf = (LPALGETAUXILIARYEFFECTSLOTF)alGetProcAddress("alGetAuxiliaryEffectSlotf");
+	alGetAuxiliaryEffectSlotfv = (LPALGETAUXILIARYEFFECTSLOTFV)alGetProcAddress("alGetAuxiliaryEffectSlotfv");
+
+	if (alGenEffects &&	alDeleteEffects && alIsEffect && alEffecti && alEffectiv &&	alEffectf &&
+		alEffectfv && alGetEffecti && alGetEffectiv && alGetEffectf && alGetEffectfv &&	alGenFilters &&
+		alDeleteFilters && alIsFilter && alFilteri && alFilteriv &&	alFilterf && alFilterfv &&
+		alGetFilteri &&	alGetFilteriv && alGetFilterf && alGetFilterfv && alGenAuxiliaryEffectSlots &&
+		alDeleteAuxiliaryEffectSlots &&	alIsAuxiliaryEffectSlot && alAuxiliaryEffectSloti &&
+		alAuxiliaryEffectSlotiv && alAuxiliaryEffectSlotf && alAuxiliaryEffectSlotfv &&
+		alGetAuxiliaryEffectSloti && alGetAuxiliaryEffectSlotiv && alGetAuxiliaryEffectSlotf &&
+		alGetAuxiliaryEffectSlotfv)
+		bEFXSupport = AL_TRUE;
 
   if (alIsExtensionPresent("AL_EXT_float32"))
     float32_capable = true;
@@ -204,6 +353,45 @@ void OpenALStream::SoundLoop()
 
   // Set the default sound volume as saved in the config file.
   alSourcef(uiSource, AL_GAIN, fVolume);
+  
+  // EFX support
+  if (bEFXSupport && UseEFX)
+  {
+    alGenAuxiliaryEffectSlots(1, &uiEffectSlot);	
+    err = CheckALError("generating aux effect slot");
+
+    alGenEffects(1, &uiEffect);
+	err = CheckALError("generating effect slot");
+
+    if (alIsEffect(uiEffect))
+    {
+      alEffecti(uiEffect, AL_EFFECT_TYPE, AL_EFFECT_PITCH_SHIFTER);
+      //alEffecti(uiEffect, AL_EFFECT_TYPE, AL_EFFECT_ECHO);
+      //alEffecti(uiEffect, AL_EFFECT_TYPE, AL_EFFECT_REVERB);
+      err = CheckALError("setting effect");
+
+      // Load effect into slot
+      if (alIsAuxiliaryEffectSlot(uiEffectSlot))
+      {
+        alAuxiliaryEffectSloti(uiEffectSlot, AL_EFFECTSLOT_EFFECT, uiEffect);
+        err = CheckALError("setting aux slot");
+      }
+    }
+		
+    alSource3i(uiSource, AL_AUXILIARY_SEND_FILTER, uiEffectSlot, 0, AL_FILTER_NULL);
+    err = CheckALError("binding effect");
+
+    alGenFilters(1, &uiFilter);
+	err = CheckALError("generating filter");
+
+    alFilteri(uiFilter, AL_FILTER_TYPE, AL_FILTER_LOWPASS);
+    alFilterf(uiFilter, AL_LOWPASS_GAIN, 0);
+    alFilterf(uiFilter, AL_LOWPASS_GAINHF, 0);
+	err = CheckALError("setting filter properties");
+		
+    alSourcei(uiSource, AL_DIRECT_FILTER, uiFilter);
+    err = CheckALError("setting direct filter");
+	}
 
   // TODO: Error handling
   // ALenum err = alGetError();
@@ -276,11 +464,53 @@ void OpenALStream::SoundLoop()
     // many silence samples.  These do not need to be timestretched.
     if (rate > 0.10)
     {
-      soundTouch.setTempo(rate);
-      if (rate > 10)
+      if (bEFXSupport && UseEFX)
       {
-        soundTouch.clear();
+        pitch_correction_cents_total = 1200 * log(1 / rate) / log(2);
+
+        // The range in the EFX effect is [-12,12] for coarse and [-50,50] for fine. This is to fix any overflow and convert to the range supported by OpenAL.
+        if (pitch_correction_cents_total > 1250)
+        {
+          pitch_correction_semitones = 12;
+          pitch_correction_cents = 50;
+        }
+        else if (pitch_correction_cents_total < -1250)
+        {
+          pitch_correction_semitones = -12;
+          pitch_correction_cents = -50;
+        }
+        else
+        {
+          pitch_correction_semitones = (int)(pitch_correction_cents_total / 100); // Truncate
+          pitch_correction_cents = pitch_correction_cents_total - pitch_correction_semitones * 100;
+
+          if (pitch_correction_cents > 50)
+          {
+            pitch_correction_semitones = pitch_correction_semitones + 1;
+            pitch_correction_cents = pitch_correction_cents - 100;
+          }
+          else if (pitch_correction_cents < -50)
+          {
+            pitch_correction_semitones = pitch_correction_semitones - 1;
+            pitch_correction_cents = pitch_correction_cents + 100;
+          }
+        }
+
+        alEffecti(uiEffect, AL_PITCH_SHIFTER_COARSE_TUNE, (ALint)pitch_correction_semitones);
+        alEffecti(uiEffect, AL_PITCH_SHIFTER_FINE_TUNE, (ALint)pitch_correction_cents);
+        alAuxiliaryEffectSloti(uiEffectSlot, AL_EFFECTSLOT_EFFECT, uiEffect);
+        err = CheckALError("correcting pitch");
+
+        alSourcef(uiSource, AL_PITCH, rate);
       }
+	  else
+      {
+	    soundTouch.setTempo(rate);
+	    if (rate > 10)
+        {
+          soundTouch.clear();
+        }
+	  }
     }
 
     unsigned int nSamples = soundTouch.receiveSamples(sampleBuffer, OAL_MAX_SAMPLES * numBuffers);
