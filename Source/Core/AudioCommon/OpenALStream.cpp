@@ -41,7 +41,8 @@ static HMODULE s_openal_dll = nullptr;
   X(alSourcePlay)                                                                                  \
   X(alSourceQueueBuffers)                                                                          \
   X(alSourceStop)                                                                                  \
-  X(alSourceUnqueueBuffers)
+  X(alSourceUnqueueBuffers)                                                                        \
+  X(alGetEnumValue)
 
 // Create func_t function pointer type and declare a nullptr-initialized static variable of that
 // type named "pfunc".
@@ -267,6 +268,15 @@ void OpenALStream::SoundLoop()
   // Generate some AL Buffers for streaming
   palGenBuffers(OAL_BUFFERS, (ALuint*)m_buffers.data());
   err = CheckALError("generating buffers");
+
+  // Force disable X-RAM, we do not want it for streaming sources
+  if (alIsExtensionPresent("EAX-RAM"))
+  {
+    EAXSetBufferMode eaxSetBufferMode;
+    eaxSetBufferMode = (EAXSetBufferMode)alGetProcAddress("EAXSetBufferMode");
+    eaxSetBufferMode(OAL_BUFFERS, m_buffers.data(), palGetEnumValue("AL_STORAGE_ACCESSIBLE"));
+    err = CheckALError("setting X-RAM mode");
+  }
 
   // Generate a Source to playback the Buffers
   palGenSources(1, &m_source);

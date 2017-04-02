@@ -16,6 +16,7 @@
 #include <OpenAL/include/al.h>
 #include <OpenAL/include/alc.h>
 #include <OpenAL/include/alext.h>
+#include <OpenAL/include/xram.h>
 
 // OpenAL requires a minimum of two buffers, three or more recommended
 #define OAL_BUFFERS 3
