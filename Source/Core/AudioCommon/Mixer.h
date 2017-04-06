@@ -18,7 +18,7 @@ public:
   ~Mixer();
 
   // Called from audio threads
-  unsigned int Mix(short* samples, unsigned int numSamples);
+  unsigned int Mix(short* samples, unsigned int numSamples, bool consider_framelimit = true);
   unsigned int MixSurround(float* samples, unsigned int num_samples);
 
   // Called from main thread

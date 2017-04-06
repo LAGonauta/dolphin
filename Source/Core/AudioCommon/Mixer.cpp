@@ -117,7 +117,7 @@ unsigned int Mixer::MixerFifo::Mix(short* samples, unsigned int numSamples,
   return actual_sample_count;
 }
 
-unsigned int Mixer::Mix(short* samples, unsigned int num_samples)
+unsigned int Mixer::Mix(short* samples, unsigned int num_samples, bool consider_framelimit)
 {
   if (!samples)
     return 0;
@@ -145,9 +145,9 @@ unsigned int Mixer::Mix(short* samples, unsigned int num_samples)
   }
   else
   {
-    m_dma_mixer.Mix(samples, num_samples, true);
-    m_streaming_mixer.Mix(samples, num_samples, true);
-    m_wiimote_speaker_mixer.Mix(samples, num_samples, true);
+    m_dma_mixer.Mix(samples, num_samples, consider_framelimit);
+    m_streaming_mixer.Mix(samples, num_samples, consider_framelimit);
+    m_wiimote_speaker_mixer.Mix(samples, num_samples, consider_framelimit);
     m_is_stretching = false;
   }
 

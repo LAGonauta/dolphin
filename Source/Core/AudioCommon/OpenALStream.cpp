@@ -294,6 +294,18 @@ void OpenALStream::SoundLoop()
 
   while (m_run_thread.IsSet())
   {
+    float rate = m_mixer->GetCurrentSpeed();
+    // Place a lower limit of 10% speed.  When a game boots up, there will be
+    // many silence samples.  These do not need to be timestretched.
+    if (SConfig::GetInstance().m_audio_stretch)
+    {
+      alSourcef(m_source, AL_PITCH, 1.0f);
+    }
+    else if (rate > 0.10)
+    {
+      alSourcef(m_source, AL_PITCH, rate);
+    }
+
     // Block until we have a free buffer
     int num_buffers_processed;
     palGetSourcei(m_source, AL_BUFFERS_PROCESSED, &num_buffers_processed);
@@ -388,7 +400,7 @@ void OpenALStream::SoundLoop()
     }
     else
     {
-      u32 rendered_frames = m_mixer->Mix(m_realtime_buffer.data(), min_frames);
+      u32 rendered_frames = m_mixer->Mix(m_realtime_buffer.data(), min_frames, false);
 
       if (!rendered_frames)
         continue;
