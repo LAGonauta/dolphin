@@ -133,13 +133,16 @@ void OpenALStream::Stop()
 
   m_thread.join();
 
-  palSourceStop(m_source);
-  palSourcei(m_source, AL_BUFFER, 0);
+  for (int i = 0; i < OAL_NUM_SOURCES; ++i)
+  {
+    palSourceStop(m_sources[i]);
+    palSourcei(m_sources[i], AL_BUFFER, 0);
 
-  // Clean up buffers and sources
-  palDeleteSources(1, &m_source);
-  m_source = 0;
-  palDeleteBuffers(OAL_BUFFERS, m_buffers.data());
+    // Clean up buffers and sources
+    palDeleteSources(1, &m_sources[i]);
+    m_sources[i] = 0;
+    palDeleteBuffers(OAL_BUFFERS, m_buffers[i].data());
+  }
 
   ALCcontext* context = palcGetCurrentContext();
   ALCdevice* device = palcGetContextsDevice(context);
@@ -153,8 +156,11 @@ void OpenALStream::SetVolume(int volume)
 {
   m_volume = (float)volume / 100.0f;
 
-  if (m_source)
-    palSourcef(m_source, AL_GAIN, m_volume);
+  for (int i = 0; i < OAL_NUM_SOURCES; ++i)
+  {
+    if (m_sources[i])
+      palSourcef(m_sources[i], AL_GAIN, m_volume);
+  }
 }
 
 void OpenALStream::Update()
@@ -168,11 +174,17 @@ void OpenALStream::Clear(bool mute)
 
   if (m_muted)
   {
-    palSourceStop(m_source);
+    for (int i = 0; i < OAL_NUM_SOURCES; ++i)
+    {
+      palSourceStop(m_sources[i]);
+    }
   }
   else
   {
-    palSourcePlay(m_source);
+    for (int i = 0; i < OAL_NUM_SOURCES; ++i)
+    {
+      palSourcePlay(m_sources[i]);
+    }
   }
 }
 
@@ -230,43 +242,49 @@ void OpenALStream::SoundLoop()
   // we just check if one is being used.
   bool fixed32_capable = IsCreativeXFi();
 
-  u32 frequency = m_mixer->GetSampleRate();
+  std::array<u32, OAL_NUM_SOURCES> frequency;
+  frequency[0] = m_mixer->GetDMASampleRate();
+  frequency[1] = m_mixer->GetStreamingSampleRate();
+  frequency[2] = m_mixer->GetWiiMoteSampleRate();
 
-  u32 frames_per_buffer;
-  // Can't have zero samples per buffer
-  if (SConfig::GetInstance().iLatency > 0)
+  std::array<u32, OAL_NUM_SOURCES> frames_per_buffer;
+  for (int i = 0; i < OAL_NUM_SOURCES; ++i)
   {
-    frames_per_buffer = frequency / 1000 * SConfig::GetInstance().iLatency / OAL_BUFFERS;
-  }
-  else
+    // calculate latency (samples) per buffer
+    if (SConfig::GetInstance().iLatency > 0)
+    {
+      frames_per_buffer[i] = frequency[i] / 1000 * SConfig::GetInstance().iLatency / OAL_BUFFERS;
+    }
+    else
+    {
+      frames_per_buffer[i] = frequency[i] / 1000 * 1 / OAL_BUFFERS;
+    }
+
+  if (frames_per_buffer[i] > OAL_MAX_FRAMES)
   {
-    frames_per_buffer = frequency / 1000 * 1 / OAL_BUFFERS;
+    frames_per_buffer[i] = OAL_MAX_FRAMES;
   }
 
-  if (frames_per_buffer > OAL_MAX_FRAMES)
-  {
-    frames_per_buffer = OAL_MAX_FRAMES;
-  }
-
-  // DPL2 needs a minimum number of samples to work (FWRDURATION)
-  if (use_surround && frames_per_buffer < 240)
-  {
-    frames_per_buffer = 240;
-  }
+    // DPL2 needs a minimum number of samples to work (FWRDURATION) (on any sample rate, or needs
+    // only 5ms of data? WiiMote should not use DPL2)
+    if (surround_capable && frames_per_buffer[i] < 240 && i != 2)
+    {
+      frames_per_buffer[i] = 240;
+    }
 
   INFO_LOG(AUDIO, "Using %d buffers, each with %d audio frames for a total of %d.", OAL_BUFFERS,
-           frames_per_buffer, frames_per_buffer * OAL_BUFFERS);
+           frames_per_buffer[i], frames_per_buffer[i] * OAL_BUFFERS);
 
   // Should we make these larger just in case the mixer ever sends more samples
   // than what we request?
-  m_realtime_buffer.resize(frames_per_buffer * STEREO_CHANNELS);
-  m_source = 0;
+  m_realtime_buffers[i].resize(frames_per_buffer[i] * STEREO_CHANNELS);
+  m_sources[i] = 0;
 
   // Clear error state before querying or else we get false positives.
   ALenum err = palGetError();
 
   // Generate some AL Buffers for streaming
-  palGenBuffers(OAL_BUFFERS, (ALuint*)m_buffers.data());
+  palGenBuffers(OAL_BUFFERS, (ALuint*)m_buffers[i].data());
   err = CheckALError("generating buffers");
 
   // Force disable X-RAM, we do not want it for streaming sources
@@ -274,61 +292,30 @@ void OpenALStream::SoundLoop()
   {
     EAXSetBufferMode eaxSetBufferMode;
     eaxSetBufferMode = (EAXSetBufferMode)alGetProcAddress("EAXSetBufferMode");
-    eaxSetBufferMode(OAL_BUFFERS, m_buffers.data(), palGetEnumValue("AL_STORAGE_ACCESSIBLE"));
+    eaxSetBufferMode(OAL_BUFFERS, m_buffers[i].data(), palGetEnumValue("AL_STORAGE_ACCESSIBLE"));
     err = CheckALError("setting X-RAM mode");
   }
 
   // Generate a Source to playback the Buffers
-  palGenSources(1, &m_source);
+  palGenSources(1, &m_sources[i]);
   err = CheckALError("generating sources");
 
   // Set the default sound volume as saved in the config file.
-  palSourcef(m_source, AL_GAIN, m_volume);
+  palSourcef(m_sources[i], AL_GAIN, m_volume);
 
   // TODO: Error handling
   // ALenum err = alGetError();
 
-  unsigned int next_buffer = 0;
-  unsigned int num_buffers_queued = 0;
-  ALint state = 0;
+  std::array<size_t, OAL_NUM_SOURCES> next_buffer = {0, 0, 0};
+  std::array<size_t, OAL_NUM_SOURCES> num_buffers_queued = {0, 0, 0};
+  std::array<ALint, OAL_NUM_SOURCES> state = {0, 0, 0};
 
   while (m_run_thread.IsSet())
   {
-    float rate = m_mixer->GetCurrentSpeed();
-    // Place a lower limit of 10% speed.  When a game boots up, there will be
-    // many silence samples.  These do not need to be timestretched.
-    if (SConfig::GetInstance().m_audio_stretch)
-    {
-      alSourcef(m_source, AL_PITCH, 1.0f);
-    }
-    else if (rate > 0.10)
-    {
-      alSourcef(m_source, AL_PITCH, rate);
-    }
-
-    // Block until we have a free buffer
-    int num_buffers_processed;
-    palGetSourcei(m_source, AL_BUFFERS_PROCESSED, &num_buffers_processed);
-    if (num_buffers_queued == OAL_BUFFERS && !num_buffers_processed)
-    {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      continue;
-    }
-
-    // Remove the Buffer from the Queue.
-    if (num_buffers_processed)
-    {
-      std::array<ALuint, OAL_BUFFERS> unqueued_buffer_ids;
-      palSourceUnqueueBuffers(m_source, num_buffers_processed, unqueued_buffer_ids.data());
-      err = CheckALError("unqueuing buffers");
-
-      num_buffers_queued -= num_buffers_processed;
-    }
-
-    unsigned int min_frames = frames_per_buffer;
-
+    // Use mixing only for stereo
     if (use_surround)
     {
+      unsigned int min_frames = frames_per_buffer[0];
       std::array<float, OAL_MAX_FRAMES * SURROUND_CHANNELS> dpl2;
       u32 rendered_frames = m_mixer->MixSurround(dpl2.data(), min_frames);
 
@@ -346,8 +333,8 @@ void OpenALStream::SoundLoop()
 
       if (float32_capable)
       {
-        palBufferData(m_buffers[next_buffer], AL_FORMAT_51CHN32, dpl2.data(),
-                      rendered_frames * FRAME_SURROUND_FLOAT, frequency);
+        palBufferData(m_buffers[0][next_buffer[0]], AL_FORMAT_51CHN32, dpl2.data(),
+          rendered_frames * FRAME_SURROUND_FLOAT, frequency[0]);
       }
       else if (fixed32_capable)
       {
@@ -367,8 +354,8 @@ void OpenALStream::SoundLoop()
             surround_int32[i] = static_cast<int>(dpl2[i]);
         }
 
-        palBufferData(m_buffers[next_buffer], AL_FORMAT_51CHN32, surround_int32.data(),
-                      rendered_frames * FRAME_SURROUND_INT32, frequency);
+        palBufferData(m_buffers[0][next_buffer[0]], AL_FORMAT_51CHN32, surround_int32.data(),
+          rendered_frames * FRAME_SURROUND_INT32, frequency[0]);
       }
       else
       {
@@ -385,8 +372,8 @@ void OpenALStream::SoundLoop()
             surround_short[i] = static_cast<int>(dpl2[i]);
         }
 
-        palBufferData(m_buffers[next_buffer], AL_FORMAT_51CHN16, surround_short.data(),
-                      rendered_frames * FRAME_SURROUND_SHORT, frequency);
+        palBufferData(m_buffers[0][next_buffer[0]], AL_FORMAT_51CHN16, surround_short.data(),
+          rendered_frames * FRAME_SURROUND_SHORT, frequency[0]);
       }
 
       err = CheckALError("buffering data");
@@ -394,33 +381,145 @@ void OpenALStream::SoundLoop()
       {
         // 5.1 is not supported by the host, fallback to stereo
         WARN_LOG(AUDIO,
-                 "Unable to set 5.1 surround mode.  Updating OpenAL Soft might fix this issue.");
+          "Unable to set 5.1 surround mode.  Updating OpenAL Soft might fix this issue.");
         use_surround = false;
+      }
+
+      palSourceQueueBuffers(m_sources[0], 1, &m_buffers[0][next_buffer[0]]);
+      err = CheckALError("queuing buffers");
+
+      num_buffers_queued[0]++;
+      next_buffer[0] = (next_buffer[0] + 1) % OAL_BUFFERS;
+
+      alGetSourcei(m_sources[0], AL_SOURCE_STATE, &state[0]);
+      if (state[0] != AL_PLAYING)
+      {
+        // Buffer underrun occurred, resume playback
+        palSourcePlay(m_sources[0]);
+        err = CheckALError("occurred resuming playback");
       }
     }
     else
     {
-      u32 rendered_frames = m_mixer->Mix(m_realtime_buffer.data(), min_frames, false);
+      for (int nsource = 0; nsource < OAL_NUM_SOURCES; ++nsource)
+      {
+        // Used to change the parameters when the frequency changes. Ugly, need to make it better
+        bool changed = false;
+        switch (nsource)
+        {
+        case 0:
+          if (frequency[nsource] != m_mixer->GetDMASampleRate())
+          {
+            changed = true;
+            frequency[nsource] = m_mixer->GetDMASampleRate();
+          }
+          break;
+        case 1:
+          if (frequency[nsource] != m_mixer->GetStreamingSampleRate())
+          {
+            changed = true;
+            frequency[nsource] = m_mixer->GetStreamingSampleRate();
+          }
+          break;
+        case 2:
+          if (frequency[nsource] != m_mixer->GetWiiMoteSampleRate())
+          {
+            changed = true;
+            frequency[nsource] = m_mixer->GetWiiMoteSampleRate();
+          }
+          break;
+        }
 
-      if (!rendered_frames)
-        continue;
+        if (changed)
+        {
+          if (SConfig::GetInstance().iLatency > 10)
+          {
+            frames_per_buffer[nsource] =
+              frequency[nsource] / 1000 * SConfig::GetInstance().iLatency / OAL_BUFFERS;
+          }
+          else
+          {
+            frames_per_buffer[nsource] = frequency[nsource] / 1000 * 1 / OAL_BUFFERS;
+          }
 
-      palBufferData(m_buffers[next_buffer], AL_FORMAT_STEREO16, m_realtime_buffer.data(),
-                    rendered_frames * FRAME_STEREO_SHORT, frequency);
-    }
+          // Unbind buffers
+          palSourceStop(m_sources[nsource]);
+          palSourcei(m_sources[nsource], AL_BUFFER, 0);
 
-    palSourceQueueBuffers(m_source, 1, &m_buffers[next_buffer]);
-    err = CheckALError("queuing buffers");
+          // Clean up queues
+          num_buffers_queued[nsource] = 0;
+          next_buffer[nsource] = 0;
 
-    num_buffers_queued++;
-    next_buffer = (next_buffer + 1) % OAL_BUFFERS;
+          // Resize arrays
+          m_realtime_buffers[nsource].resize(frames_per_buffer[nsource] * STEREO_CHANNELS);
+          continue;
+        }
 
-    palGetSourcei(m_source, AL_SOURCE_STATE, &state);
-    if (state != AL_PLAYING)
-    {
-      // Buffer underrun occurred, resume playback
-      palSourcePlay(m_source);
-      err = CheckALError("occurred resuming playback");
+        float rate = m_mixer->GetCurrentSpeed();
+        // Place a lower limit of 10% speed.  When a game boots up, there will be
+        // many silence samples.  These do not need to be timestretched.
+        if (SConfig::GetInstance().m_audio_stretch)
+        {
+          alSourcef(m_sources[i], AL_PITCH, 1.0f);
+        }
+        else if (rate > 0.10)
+        {
+          alSourcef(m_sources[i], AL_PITCH, rate);
+        }
+
+        // Block until we have a free buffer
+        int num_buffers_processed;
+        palGetSourcei(m_sources[nsource], AL_BUFFERS_PROCESSED, &num_buffers_processed);
+        if (num_buffers_queued[nsource] == OAL_BUFFERS && !num_buffers_processed)
+        {
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          continue;
+        }
+
+        // Remove the Buffer from the Queue.
+        if (num_buffers_processed)
+        {
+          std::array<ALuint, OAL_BUFFERS> unqueued_buffer_ids;
+          palSourceUnqueueBuffers(m_sources[nsource], num_buffers_processed, unqueued_buffer_ids.data());
+          err = CheckALError("unqueuing buffers");
+
+          num_buffers_queued[nsource] -= num_buffers_processed;
+        }
+
+        unsigned int rendered_frames = 0;
+        switch (nsource)
+        {
+        case 0:
+          rendered_frames = m_mixer->MixDMA(m_realtime_buffers[nsource].data(), frames_per_buffer[nsource], false, true);
+          break;
+        case 1:
+          rendered_frames = m_mixer->MixStreaming(m_realtime_buffers[nsource].data(), frames_per_buffer[nsource], false,
+            true);
+          break;
+        case 2:
+          rendered_frames = m_mixer->MixWiiMote(m_realtime_buffers[nsource].data(), frames_per_buffer[nsource], false,
+            true);
+          break;
+        }
+
+        alBufferData(m_buffers[nsource][next_buffer[nsource]], AL_FORMAT_STEREO16,
+          m_realtime_buffers[nsource].data(), rendered_frames * FRAME_STEREO_SHORT,
+          frequency[nsource]);
+
+        palSourceQueueBuffers(m_sources[nsource], 1, &m_buffers[nsource][next_buffer[nsource]]);
+        err = CheckALError("queuing buffers");
+
+        num_buffers_queued[nsource]++;
+        next_buffer[nsource] = (next_buffer[nsource] + 1) % OAL_BUFFERS;
+
+        alGetSourcei(m_sources[nsource], AL_SOURCE_STATE, &state[nsource]);
+        if (state[nsource] != AL_PLAYING)
+        {
+          // Buffer underrun occurred, resume playback
+          palSourcePlay(m_sources[nsource]);
+          err = CheckALError("occurred resuming playback");
+        }
+      }
     }
   }
 }

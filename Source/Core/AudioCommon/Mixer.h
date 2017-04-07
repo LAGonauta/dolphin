@@ -19,6 +19,15 @@ public:
 
   // Called from audio threads
   unsigned int Mix(short* samples, unsigned int numSamples, bool consider_framelimit = true);
+  unsigned int MixDMA(short* samples, unsigned int numSamples, bool consider_framelimit,
+                      bool simple_resample);
+  int GetDMASampleRate();
+  unsigned int MixStreaming(short* samples, unsigned int numSamples, bool consider_framelimit,
+                            bool simple_resample);
+  int GetStreamingSampleRate();
+  unsigned int MixWiiMote(short* samples, unsigned int numSamples, bool consider_framelimit,
+                          bool simple_resample);
+  int GetWiiMoteSampleRate();
   unsigned int MixSurround(float* samples, unsigned int num_samples);
 
   // Called from main thread
@@ -54,7 +63,8 @@ private:
     {
     }
     void PushSamples(const short* samples, unsigned int num_samples);
-    unsigned int Mix(short* samples, unsigned int numSamples, bool consider_framelimit = true);
+    unsigned int Mix(short* samples, unsigned int numSamples, bool consider_framelimit = true,
+                     bool simple_resample = false);
     void SetInputSampleRate(unsigned int rate);
     unsigned int GetInputSampleRate() const;
     void SetVolume(unsigned int lvolume, unsigned int rvolume);

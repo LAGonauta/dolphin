@@ -18,6 +18,7 @@
 #include <OpenAL/include/alext.h>
 #include <OpenAL/include/xram.h>
 
+#define OAL_NUM_SOURCES 3
 // OpenAL requires a minimum of two buffers, three or more recommended
 #define OAL_BUFFERS 3
 #define OAL_MAX_FRAMES 4096
@@ -55,7 +56,7 @@ class OpenALStream final : public SoundStream
 {
 #ifdef _WIN32
 public:
-  OpenALStream() : m_source(0) {}
+  OpenALStream() : m_sources{{ 0, 0, 0 }} {}
   bool Start() override;
   void SoundLoop() override;
   void SetVolume(int volume) override;
@@ -71,9 +72,10 @@ private:
 
   Common::Event m_sound_sync_event;
 
-  std::vector<short> m_realtime_buffer;
-  std::array<ALuint, OAL_BUFFERS> m_buffers;
-  ALuint m_source;
+  // one source for the DMA, one for streaming and another for the WiiMote
+  std::array<std::vector<short>, OAL_NUM_SOURCES> m_realtime_buffers;
+  std::array<std::array<ALuint, OAL_BUFFERS>, OAL_NUM_SOURCES> m_buffers;
+  std::array<ALuint, OAL_NUM_SOURCES> m_sources;
   ALfloat m_volume;
 
 #endif  // _WIN32
