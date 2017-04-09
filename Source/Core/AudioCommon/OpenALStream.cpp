@@ -194,31 +194,7 @@ static ALenum CheckALError(const char* desc)
 
   if (err != AL_NO_ERROR)
   {
-    std::string type;
-
-    switch (err)
-    {
-    case AL_INVALID_NAME:
-      type = "AL_INVALID_NAME";
-      break;
-    case AL_INVALID_ENUM:
-      type = "AL_INVALID_ENUM";
-      break;
-    case AL_INVALID_VALUE:
-      type = "AL_INVALID_VALUE";
-      break;
-    case AL_INVALID_OPERATION:
-      type = "AL_INVALID_OPERATION";
-      break;
-    case AL_OUT_OF_MEMORY:
-      type = "AL_OUT_OF_MEMORY";
-      break;
-    default:
-      type = "UNKNOWN_ERROR";
-      break;
-    }
-
-    ERROR_LOG(AUDIO, "Error %s: %08x %s", desc, err, type.c_str());
+    ERROR_LOG(AUDIO, "Error %s: %08x %s", desc, err, alGetString(err));
   }
 
   return err;
@@ -236,6 +212,7 @@ void OpenALStream::SoundLoop()
   bool float32_capable = palIsExtensionPresent("AL_EXT_float32") != 0;
   bool surround_capable = palIsExtensionPresent("AL_EXT_MCFORMATS") || IsCreativeXFi();
   bool use_surround = SConfig::GetInstance().bDPL2Decoder && surround_capable;
+  bool using_HLE = SConfig::GetInstance().bDSPHLE;
 
   // As there is no extension to check for 32-bit fixed point support
   // and we know that only a X-Fi with hardware OpenAL supports it,
@@ -292,8 +269,9 @@ void OpenALStream::SoundLoop()
   {
     EAXSetBufferMode eaxSetBufferMode;
     eaxSetBufferMode = (EAXSetBufferMode)alGetProcAddress("EAXSetBufferMode");
-    eaxSetBufferMode(OAL_BUFFERS, m_buffers[i].data(), palGetEnumValue("AL_STORAGE_ACCESSIBLE"));
-    err = CheckALError("setting X-RAM mode");
+    bool status = eaxSetBufferMode(OAL_BUFFERS, m_buffers[i].data(), palGetEnumValue("AL_STORAGE_ACCESSIBLE"));
+    if (status == false)
+      ERROR_LOG(AUDIO, "Error setting-up X-RAM mode.");
   }
 
   // Generate a Source to playback the Buffers
@@ -497,8 +475,11 @@ void OpenALStream::SoundLoop()
             true);
           break;
         case 2:
-          rendered_frames = m_mixer->MixWiiMote(m_realtime_buffers[nsource].data(), frames_per_buffer[nsource], false,
-            true);
+          if (using_HLE)
+          {
+            rendered_frames = m_mixer->MixWiiMote(m_realtime_buffers[nsource].data(), frames_per_buffer[nsource], false,
+              true);
+          }
           break;
         }
 
