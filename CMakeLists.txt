@@ -650,6 +650,10 @@ else()
 endif()
 
 find_package(OpenAL)
+if(OPENAL_FOUND)
+  message(STATUS "Using static FreeSurround from Externals")
+  add_subdirectory(Externals/FreeSurround)
+endif()
 
 # Using static soundtouch from Externals
 # Unable to use system soundtouch library: We require shorts, not floats.

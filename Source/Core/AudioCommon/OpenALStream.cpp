@@ -6,19 +6,21 @@
 #include <cstring>
 #include <thread>
 
-#include "AudioCommon/DPL2Decoder.h"
 #include "AudioCommon/OpenALStream.h"
 #include "AudioCommon/aldlist.h"
 #include "Common/Logging/Log.h"
 #include "Common/MsgHandler.h"
 #include "Common/Thread.h"
 #include "Core/ConfigManager.h"
+#include "FreeSurround/FreeSurroundDecoder.h"
 
 #if defined HAVE_OPENAL && HAVE_OPENAL
 
 #ifdef _WIN32
 #pragma comment(lib, "openal32.lib")
 #endif
+
+static DPL2FSDecoder fsdecoder;
 
 //
 // AyuanX: Spec says OpenAL1.1 is thread safe already
@@ -66,8 +68,8 @@ bool OpenALStream::Start()
     PanicAlertT("OpenAL: can't find sound devices");
   }
 
-  // Initialize DPL2 parameters
-  DPL2Reset();
+  // Initialize the decoder.
+  fsdecoder.Init();
 
   return bReturn;
 }
@@ -207,6 +209,9 @@ void OpenALStream::SoundLoop()
   unsigned int numBuffersQueued = 0;
   ALint iState = 0;
 
+  fsdecoder.set_block_size(OAL_MAX_SAMPLES);
+  fsdecoder.set_sample_rate(ulFrequency);
+
   while (m_run_thread.IsSet())
   {
     // Block until we have a free buffer
@@ -214,7 +219,7 @@ void OpenALStream::SoundLoop()
     alGetSourcei(uiSource, AL_BUFFERS_PROCESSED, &numBuffersProcessed);
     if (numBuffers == numBuffersQueued && !numBuffersProcessed)
     {
-      soundSyncEvent.Wait();
+      // soundSyncEvent.Wait();
       continue;
     }
 
@@ -228,75 +233,73 @@ void OpenALStream::SoundLoop()
       numBuffersQueued -= numBuffersProcessed;
     }
 
-    // DPL2 accepts 240 samples minimum (FWRDURATION)
-    unsigned int minSamples = surround_capable ? 240 : 0;
+    // FreeSurround DPL2 decoder needs 256 samples minimum
+    unsigned int minSamples = surround_capable ? 256 : 0;
 
     unsigned int numSamples = OAL_MAX_SAMPLES;
     numSamples = m_mixer->Mix(realtimeBuffer, numSamples);
 
     // Convert the samples from short to float
     for (u32 i = 0; i < numSamples * STEREO_CHANNELS; ++i)
-      sampleBuffer[i] = static_cast<float>(realtimeBuffer[i]) / (1 << 15);
+      sampleBuffer[i] = static_cast<float>(realtimeBuffer[i]) / INT16_MAX;
 
-    if (numSamples <= minSamples)
+    if (numSamples < minSamples)
       continue;
 
     if (surround_capable)
     {
-      float dpl2[OAL_MAX_SAMPLES * OAL_MAX_BUFFERS * SURROUND_CHANNELS];
-      DPL2Decode(sampleBuffer, numSamples, dpl2);
+      float* dpl2_fs = fsdecoder.decode(sampleBuffer);
+      std::vector<float> dpl2(numSamples * SURROUND_CHANNELS);
 
-      // zero-out the subwoofer channel - DPL2Decode generates a pretty
-      // good 5.0 but not a good 5.1 output.  Sadly there is not a 5.0
-      // AL_FORMAT_50CHN32 to make this super-explicit.
-      // DPL2Decode output: LEFTFRONT, RIGHTFRONT, CENTREFRONT, (sub), LEFTREAR, RIGHTREAR
+      // Correct channel mapping for OpenAL
+      // FreeSurround:
+      // FL | FC | FR | BL | BR | LFE
+      // OpenAL:
+      // FL | FR | FC | LFE | BL | BR
+
       for (u32 i = 0; i < numSamples; ++i)
       {
-        dpl2[i * SURROUND_CHANNELS + 3 /*sub/lfe*/] = 0.0f;
+        dpl2[i * SURROUND_CHANNELS + 0 /*LEFTFRONT*/] =
+            dpl2_fs[i * SURROUND_CHANNELS + 0 /*LEFTFRONT*/];
+        dpl2[i * SURROUND_CHANNELS + 1 /*RIGHTFRONT*/] =
+            dpl2_fs[i * SURROUND_CHANNELS + 2 /*RIGHTFRONT*/];
+        dpl2[i * SURROUND_CHANNELS + 2 /*CENTREFRONT*/] =
+            dpl2_fs[i * SURROUND_CHANNELS + 1 /*CENTREFRONT*/];
+        dpl2[i * SURROUND_CHANNELS + 3 /*sub/lfe*/] =
+            dpl2_fs[i * SURROUND_CHANNELS + 5 /*sub/lfe*/];
+        dpl2[i * SURROUND_CHANNELS + 4 /*LEFTREAR*/] =
+            dpl2_fs[i * SURROUND_CHANNELS + 3 /*LEFTREAR*/];
+        dpl2[i * SURROUND_CHANNELS + 5 /*RIGHTREAR*/] =
+            dpl2_fs[i * SURROUND_CHANNELS + 4 /*RIGHTREAR*/];
       }
 
       if (float32_capable)
       {
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_51CHN32, dpl2,
+        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_51CHN32, dpl2.data(),
                      numSamples * FRAME_SURROUND_FLOAT, ulFrequency);
       }
       else if (fixed32_capable)
       {
-        int surround_int32[OAL_MAX_SAMPLES * SURROUND_CHANNELS * OAL_MAX_BUFFERS];
+        std::vector<int> surround_int32(numSamples * SURROUND_CHANNELS);
 
         for (u32 i = 0; i < numSamples * SURROUND_CHANNELS; ++i)
         {
-          // For some reason the ffdshow's DPL2 decoder outputs samples bigger than 1.
-          // Most are close to 2.5 and some go up to 8. Hard clamping here, we need to
-          // fix the decoder or implement a limiter.
-          dpl2[i] = dpl2[i] * (INT64_C(1) << 31);
-          if (dpl2[i] > INT_MAX)
-            surround_int32[i] = INT_MAX;
-          else if (dpl2[i] < INT_MIN)
-            surround_int32[i] = INT_MIN;
-          else
-            surround_int32[i] = (int)dpl2[i];
+          surround_int32[i] = static_cast<int>(dpl2[i] * INT32_MAX);
         }
 
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_51CHN32, surround_int32,
+        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_51CHN32, surround_int32.data(),
                      numSamples * FRAME_SURROUND_INT32, ulFrequency);
       }
       else
       {
-        short surround_short[OAL_MAX_SAMPLES * SURROUND_CHANNELS * OAL_MAX_BUFFERS];
+        std::vector<short> surround_short(numSamples * SURROUND_CHANNELS);
 
         for (u32 i = 0; i < numSamples * SURROUND_CHANNELS; ++i)
         {
-          dpl2[i] = dpl2[i] * (1 << 15);
-          if (dpl2[i] > SHRT_MAX)
-            surround_short[i] = SHRT_MAX;
-          else if (dpl2[i] < SHRT_MIN)
-            surround_short[i] = SHRT_MIN;
-          else
-            surround_short[i] = (int)dpl2[i];
+          surround_short[i] = static_cast<int>(dpl2[i] * INT16_MAX);
         }
 
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_51CHN16, surround_short,
+        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_51CHN16, surround_short.data(),
                      numSamples * FRAME_SURROUND_SHORT, ulFrequency);
       }
 
@@ -324,22 +327,20 @@ void OpenALStream::SoundLoop()
       }
       else if (fixed32_capable)
       {
-        // Clamping is not necessary here, samples are always between (-1,1)
-        int stereo_int32[OAL_MAX_SAMPLES * STEREO_CHANNELS * OAL_MAX_BUFFERS];
+        std::vector<int> stereo_int32(numSamples * STEREO_CHANNELS);
         for (u32 i = 0; i < numSamples * STEREO_CHANNELS; ++i)
-          stereo_int32[i] = (int)((float)sampleBuffer[i] * (INT64_C(1) << 31));
+          stereo_int32[i] = static_cast<int>(sampleBuffer[i] * INT32_MAX);
 
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_STEREO32, stereo_int32,
+        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_STEREO32, stereo_int32.data(),
                      numSamples * FRAME_STEREO_INT32, ulFrequency);
       }
       else
       {
-        // Convert the samples from float to short
-        short stereo[OAL_MAX_SAMPLES * STEREO_CHANNELS * OAL_MAX_BUFFERS];
+        std::vector<short> stereo(numSamples * STEREO_CHANNELS);
         for (u32 i = 0; i < numSamples * STEREO_CHANNELS; ++i)
-          stereo[i] = (short)((float)sampleBuffer[i] * (1 << 15));
+          stereo[i] = static_cast<short>(sampleBuffer[i] * INT16_MAX);
 
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_STEREO16, stereo,
+        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_STEREO16, stereo.data(),
                      numSamples * FRAME_STEREO_SHORT, ulFrequency);
       }
     }
