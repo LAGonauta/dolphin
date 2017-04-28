@@ -28,7 +28,7 @@ using namespace std;
 // FreeSurround implementation
 // For better documentation look at FreeSurround's source code
 // DPL2FSDecoder = decoder_impl
-// DPL2FSDecoder::Init() should also be called or bad thing may happen.
+// DPL2FSDecoder::Init() must be called before using the decoder.
 DPL2FSDecoder::DPL2FSDecoder(channel_setup setup, unsigned int N,
                              unsigned int sample_rate)
     : N(N), wnd(N), inbuf(3 * N), setup(setup), samplerate(sample_rate),
@@ -49,16 +49,16 @@ void DPL2FSDecoder::Init() {
   if (!initialized) {
     // chn_alloc is not initialized when initiazing the class as global... how
     // to fix this issue? I believe this is needed on backends such as
-    // PulseAudio.
-    // Right now each backend it has to initialize the decoder before using.
-    C = ((unsigned)chn_alloc[setup].size());
+    // PulseAudio. Right now each backend has to initialize the decoder before
+    // using it.
+    C = static_cast<unsigned int>(chn_alloc[setup].size());
 
     // allocate per-channel buffers
     outbuf.resize((N + N / 2) * C);
     signal.resize(C, vector<cplx>(N));
 
     // init the window function
-    for (unsigned k = 0; k < N; k++)
+    for (unsigned int k = 0; k < N; k++)
       wnd[k] = sqrt(0.5 * (1 - cos(2 * pi * k / N)) / N);
 
     // set default parameters
@@ -103,7 +103,7 @@ void DPL2FSDecoder::flush() {
 }
 
 // number of samples currently held in the buffer
-unsigned DPL2FSDecoder::buffered() { return buffer_empty ? 0 : N / 2; }
+unsigned int DPL2FSDecoder::buffered() { return buffer_empty ? 0 : N / 2; }
 
 // set soundfield & rendering parameters
 void DPL2FSDecoder::set_circular_wrap(float v) { circular_wrap = v; }
@@ -140,14 +140,14 @@ void DPL2FSDecoder::set_block_size(unsigned int v) {
   rf = std::vector<cplx>(N / 2 + 1);
   forward = kiss_fftr_alloc(N, 0, 0, 0);
   inverse = kiss_fftr_alloc(N, 1, 0, 0);
-  C = ((unsigned)chn_alloc[setup].size());
+  C = static_cast<unsigned int>(chn_alloc[setup].size());
 
   // allocate per-channel buffers
   outbuf.resize((N + N / 2) * C);
   signal.resize(C, vector<cplx>(N));
 
   // init the window function
-  for (unsigned k = 0; k < N; k++)
+  for (unsigned int k = 0; k < N; k++)
     wnd[k] = sqrt(0.5 * (1 - cos(2 * pi * k / N)) / N);
 
   // update bass redirection parameters
@@ -192,7 +192,7 @@ int DPL2FSDecoder::map_to_grid(double &x) {
 // decode a block of data and overlap-add it into outbuf
 void DPL2FSDecoder::buffered_decode(float *input) {
   // demultiplex and apply window function
-  for (unsigned k = 0; k < N; k++) {
+  for (unsigned int k = 0; k < N; k++) {
     lt[k] = wnd[k] * input[k * 2 + 0];
     rt[k] = wnd[k] * input[k * 2 + 1];
   }
@@ -202,7 +202,7 @@ void DPL2FSDecoder::buffered_decode(float *input) {
   kiss_fftr(forward, &rt[0], (kiss_fft_cpx *)&rf[0]);
 
   // compute multichannel output signal in the spectral domain
-  for (unsigned f = 1; f < N / 2; f++) {
+  for (unsigned int f = 1; f < N / 2; f++) {
     // get Lt/Rt amplitudes & phases
     double ampL = amplitude(lf[f]), ampR = amplitude(rf[f]);
     double phaseL = phase(lf[f]), phaseR = phase(rf[f]);
@@ -238,15 +238,14 @@ void DPL2FSDecoder::buffered_decode(float *input) {
     // in the map grid
     int p = map_to_grid(x), q = map_to_grid(y);
     // map position to channel volumes
-    for (unsigned c = 0; c < C - 1; c++) {
+    for (unsigned int c = 0; c < C - 1; c++) {
       // look up channel map at respective position (with bilinear
-      // interpolation) and build the
-      // signal
+      // interpolation) and build the signal
       vector<float *> &a = chn_alloc[setup][c];
       signal[c][f] = polar(
           amp_total * ((1 - x) * (1 - y) * a[q][p] + x * (1 - y) * a[q][p + 1] +
                        (1 - x) * y * a[q + 1][p] + x * y * a[q + 1][p + 1]),
-          phase_of[1 + (int)sign(chn_xsf[setup][c])]);
+          phase_of[1 + static_cast<int>(sign(chn_xsf[setup][c]))]);
     }
 
     // optionally redirect bass
@@ -258,7 +257,7 @@ void DPL2FSDecoder::buffered_decode(float *input) {
       // assign LFE channel
       signal[C - 1][f] = lfe_level * polar(amp_total, phase_of[1]);
       // subtract the signal from the other channels
-      for (unsigned c = 0; c < C - 1; c++)
+      for (unsigned int c = 0; c < C - 1; c++)
         signal[c][f] *= (1 - lfe_level);
     }
   }
@@ -268,12 +267,12 @@ void DPL2FSDecoder::buffered_decode(float *input) {
   // and clear the rest
   memset(&outbuf[C * N], 0, C * 4 * N / 2);
   // backtransform each channel and overlap-add
-  for (unsigned c = 0; c < C; c++) {
+  for (unsigned int c = 0; c < C; c++) {
     // back-transform into time domain
     kiss_fftri(inverse, (kiss_fft_cpx *)&signal[c][0], &dst[0]);
     // add the result to the last 2/3 of the output buffer, windowed (and
     // remultiplex)
-    for (unsigned k = 0; k < N; k++)
+    for (unsigned int k = 0; k < N; k++)
       outbuf[C * (k + N / 2) + c] += static_cast<float>(wnd[k] * dst[k]);
   }
 }

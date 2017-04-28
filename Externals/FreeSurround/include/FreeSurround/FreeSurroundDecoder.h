@@ -24,10 +24,8 @@
 typedef std::complex<double> cplx;
 
 // Identifiers for the supported output channels (from front to back, left to
-// right).
-// The ordering here also determines the ordering of interleaved samples in the
-// output signal.
-
+// right). The ordering here also determines the ordering of interleaved
+// samples in the output signal.
 typedef enum channel_id {
   ci_none = 0,
   ci_front_left = 1 << 1,
@@ -49,79 +47,89 @@ typedef enum channel_id {
   ci_lfe = 1 << 31
 } channel_id;
 
-/**
-* The supported output channel setups.
-* A channel setup is defined by the set of channels that are present. Here is a
-* graphic
-* of the cs_5point1 setup:
-* http://en.wikipedia.org/wiki/File:5_1_channels_(surround_sound)_label.svg
-*/
+// The supported output channel setups.  A channel setup is defined by the set
+// of channels that are present. Here is a graphic of the cs_5point1 setup:
+// http://en.wikipedia.org/wiki/File:5_1_channels_(surround_sound)_label.svg
 typedef enum channel_setup {
   cs_stereo = ci_front_left | ci_front_right | ci_lfe,
+
   cs_3stereo = ci_front_left | ci_front_center | ci_front_right | ci_lfe,
+
   cs_5stereo = ci_front_left | ci_front_center_left | ci_front_center |
                ci_front_center_right | ci_front_right | ci_lfe,
+
   cs_4point1 =
       ci_front_left | ci_front_right | ci_back_left | ci_back_right | ci_lfe,
+
   cs_5point1 = ci_front_left | ci_front_center | ci_front_right | ci_back_left |
                ci_back_right | ci_lfe,
+
   cs_6point1 = ci_front_left | ci_front_center | ci_front_right |
                ci_side_center_left | ci_side_center_right | ci_back_center |
                ci_lfe,
+
   cs_7point1 = ci_front_left | ci_front_center | ci_front_right |
                ci_side_center_left | ci_side_center_right | ci_back_left |
                ci_back_right | ci_lfe,
+
   cs_7point1_panorama = ci_front_left | ci_front_center_left | ci_front_center |
                         ci_front_center_right | ci_front_right |
                         ci_side_center_left | ci_side_center_right | ci_lfe,
+
   cs_7point1_tricenter = ci_front_left | ci_front_center_left |
                          ci_front_center | ci_front_center_right |
                          ci_front_right | ci_back_left | ci_back_right | ci_lfe,
+
   cs_8point1 = ci_front_left | ci_front_center | ci_front_right |
                ci_side_center_left | ci_side_center_right | ci_back_left |
                ci_back_center | ci_back_right | ci_lfe,
+
   cs_9point1_densepanorama =
       ci_front_left | ci_front_center_left | ci_front_center |
       ci_front_center_right | ci_front_right | ci_side_front_left |
       ci_side_front_right | ci_side_center_left | ci_side_center_right | ci_lfe,
+
   cs_9point1_wrap = ci_front_left | ci_front_center_left | ci_front_center |
                     ci_front_center_right | ci_front_right |
                     ci_side_center_left | ci_side_center_right | ci_back_left |
                     ci_back_right | ci_lfe,
+
   cs_11point1_densewrap =
       ci_front_left | ci_front_center_left | ci_front_center |
       ci_front_center_right | ci_front_right | ci_side_front_left |
       ci_side_front_right | ci_side_center_left | ci_side_center_right |
       ci_side_back_left | ci_side_back_right | ci_lfe,
+
   cs_13point1_totalwrap =
       ci_front_left | ci_front_center_left | ci_front_center |
       ci_front_center_right | ci_front_right | ci_side_front_left |
       ci_side_front_right | ci_side_center_left | ci_side_center_right |
       ci_side_back_left | ci_side_back_right | ci_back_left | ci_back_right |
       ci_lfe,
+
   cs_16point1 = ci_front_left | ci_front_center_left | ci_front_center |
                 ci_front_center_right | ci_front_right | ci_side_front_left |
                 ci_side_front_right | ci_side_center_left |
                 ci_side_center_right | ci_side_back_left | ci_side_back_right |
                 ci_back_left | ci_back_center_left | ci_back_center |
                 ci_back_center_right | ci_back_right | ci_lfe,
-  cs_legacy = 0 // same channels as cs_5point1 but different upmixing transform;
-                // does not support
-                // the focus control
+
+  // same channels as cs_5point1 but different upmixing transform;
+  // does not support
+  // the focus control
+  cs_legacy = 0
 } channel_setup;
 
 // The FreeSurround decoder.
-
 class DPL2FSDecoder {
 public:
   // Create an instance of the decoder.
   // @param setup The output channel setup -- determines the number of output
   // channels and their place in the sound field.
-  //  @param blocksize Granularity at which data is processed by the decode()
-  // function. Must be a power of two and should correspond to ca.
-  // 10ms worth of single-channel samples (default is 4096 for 44.1Khz data). Do
-  // not
-  // make it shorter or longer than 5ms to 20ms since the granularity at which
+  // @param blocksize Granularity at which data is processed by the decode()
+  // function. Must be a power of two and should correspond to ca. 10ms worth
+  // of single-channel samples (default is 4096 for 44.1Khz data). Do not make
+  // it shorter or longer than 5ms to 20ms since the granularity at which
   // locations are decoded changes with this.
   DPL2FSDecoder(channel_setup setup = cs_5point1, unsigned int blocksize = 4096,
                 unsigned int samplerate = 48000);
@@ -136,9 +144,7 @@ public:
   // 2*blocksize numbers.
   // @return A pointer to an internal buffer of exactly blocksize (multiplexed)
   // multichannel samples. The actual number of values depends on the number of
-  // output
-  // channels in the chosen channel setup.
-
+  // output channels in the chosen channel setup.
   float *decode(float *input);
 
   // Flush the internal buffer.
@@ -160,43 +166,71 @@ public:
   void set_block_size(unsigned int v);
 
   // number of samples currently held in the buffer
-  unsigned buffered();
+  unsigned int buffered();
 
 private:
   // constants
   const float pi = 3.141592654f;
   const float epsilon = 0.000001f;
 
-  unsigned int N,
-      C; // number of samples per input/output block, number of output channels
+  // number of samples per input/output block, number of output channels
+  unsigned int N, C;
   unsigned int samplerate;
-  channel_setup setup; // the channel setup
+
+  // the channel setup
+  channel_setup setup;
   bool initialized;
 
   // parameters
-  float circular_wrap;    // angle of the front soundstage around the listener
-                          // (90\B0=default)
-  float shift;            // forward/backward offset of the soundstage
-  float depth;            // backward extension of the soundstage
-  float focus;            // localization of the sound events
-  float center_image;     // presence of the center speaker
-  float front_separation; // front stereo separation
-  float rear_separation;  // rear stereo separation
-  float lo_cut, hi_cut;   // LFE cutoff frequencies
-  bool use_lfe;           // whether to use the LFE channel
+  // angle of the front soundstage around the listener (90\B0=default)
+  float circular_wrap;
+
+  // forward/backward offset of the soundstage
+  float shift;
+
+  // backward extension of the soundstage
+  float depth;
+
+  // localization of the sound events
+  float focus;
+
+  // presence of the center speaker
+  float center_image;
+
+  // front stereo separation
+  float front_separation;
+
+  // rear stereo separation
+  float rear_separation;
+
+  // LFE cutoff frequencies
+  float lo_cut, hi_cut;
+
+  // whether to use the LFE channel
+  bool use_lfe;
 
   // FFT data structures
-  std::vector<double> lt, rt,
-      dst; // left total, right total (source arrays), time-domain destination
-           // buffer array
-  std::vector<cplx> lf, rf; // left total / right total in frequency domain
-  kiss_fftr_cfg forward, inverse; // FFT buffers
+  // left total, right total (source arrays), time-domain destination buffer array
+  std::vector<double> lt, rt, dst;
+
+  // left total / right total in frequency domain
+  std::vector<cplx> lf, rf;
+
+  // FFT buffers
+  kiss_fftr_cfg forward, inverse;
 
   // buffers
-  bool buffer_empty;         // whether the buffer is currently empty or dirty
-  std::vector<float> inbuf;  // stereo input buffer (multiplexed)
-  std::vector<float> outbuf; // multichannel output buffer (multiplexed)
-  std::vector<double> wnd;   // the window function, precomputed
+  // whether the buffer is currently empty or dirty
+  bool buffer_empty;
+
+  // stereo input buffer (multiplexed)
+  std::vector<float> inbuf;
+
+  // multichannel output buffer (multiplexed)
+  std::vector<float> outbuf;
+
+  // the window function, precomputed
+  std::vector<double> wnd;
 
   // the signal to be constructed in every channel, in the frequency domain
   // instantiate the decoder with a given channel setup and processing block
