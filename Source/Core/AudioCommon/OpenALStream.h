@@ -26,7 +26,7 @@
 #include <AL/alext.h>
 #endif
 
-#define SFX_MAX_SOURCE 1
+#define SFX_MAX_SOURCES 16
 #define OAL_MAX_BUFFERS 32
 #define OAL_MAX_SAMPLES 256
 #define STEREO_CHANNELS 2
@@ -61,7 +61,6 @@ class OpenALStream final : public SoundStream
 {
 #if defined HAVE_OPENAL && HAVE_OPENAL
 public:
-  OpenALStream() : uiSource(0) {}
   bool Start() override;
   void SoundLoop() override;
   void SetVolume(int volume) override;
@@ -76,11 +75,12 @@ private:
 
   Common::Event soundSyncEvent;
 
-  short realtimeBuffer[OAL_MAX_SAMPLES * STEREO_CHANNELS];
-  float sampleBuffer[OAL_MAX_SAMPLES * SURROUND_CHANNELS * OAL_MAX_BUFFERS];
-  ALuint uiBuffers[OAL_MAX_BUFFERS];
-  ALuint uiSource;
-  ALfloat fVolume;
+  std::array<short, OAL_MAX_SAMPLES * STEREO_CHANNELS> realtime_buffer;
+  std::array<float, OAL_MAX_SAMPLES * SURROUND_CHANNELS * OAL_MAX_BUFFERS> sample_buffer;
+  std::array<std::array<ALuint, OAL_MAX_BUFFERS>, SFX_MAX_SOURCES> buffers;
+  std::array <ALuint, SFX_MAX_SOURCES> sources;
+  ALfloat global_volume;
+  bool use_full_HRTF = false;
 
   u8 numBuffers;
 #endif  // HAVE_OPENAL

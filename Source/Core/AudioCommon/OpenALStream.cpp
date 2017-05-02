@@ -82,13 +82,16 @@ void OpenALStream::Stop()
 
   thread.join();
 
-  alSourceStop(uiSource);
-  alSourcei(uiSource, AL_BUFFER, 0);
+  for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+  {
+	  alSourceStop(sources[i]);
+	  alSourcei(sources[i], AL_BUFFER, 0);
 
-  // Clean up buffers and sources
-  alDeleteSources(1, &uiSource);
-  uiSource = 0;
-  alDeleteBuffers(numBuffers, uiBuffers);
+	  // Clean up buffers and sources
+	  alDeleteSources(1, &sources[i]);
+	  sources[i] = 0;
+	  alDeleteBuffers(numBuffers, buffers[i].data());
+  }
 
   ALCcontext* pContext = alcGetCurrentContext();
   ALCdevice* pDevice = alcGetContextsDevice(pContext);
@@ -100,10 +103,21 @@ void OpenALStream::Stop()
 
 void OpenALStream::SetVolume(int volume)
 {
-  fVolume = (float)volume / 100.0f;
+  global_volume = (float)volume / 100.0f;
 
-  if (uiSource)
-    alSourcef(uiSource, AL_GAIN, fVolume);
+  if (use_full_HRTF)
+  {
+    for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+    {
+      if (sources[i])
+        alSourcef(sources[i], AL_GAIN, global_volume);
+    }
+  }
+  else
+  {
+    if (sources[0])
+      alSourcef(sources[0], AL_GAIN, global_volume);
+  }
 }
 
 void OpenALStream::Update()
@@ -117,11 +131,31 @@ void OpenALStream::Clear(bool mute)
 
   if (m_muted)
   {
-    alSourceStop(uiSource);
+      if (use_full_HRTF)
+      {
+        for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+        {
+          alSourceStop(sources[i]);
+        }
+      }
+      else
+      {
+        alSourceStop(sources[0]);
+      }
   }
   else
   {
-    alSourcePlay(uiSource);
+      if (use_full_HRTF)
+      {
+        for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+        {
+          alSourcePlay(sources[i]);
+        }
+      }
+      else
+      {
+        alSourcePlay(sources[0]);
+      }
   }
 }
 
@@ -168,6 +202,7 @@ void OpenALStream::SoundLoop()
   bool surround_capable = SConfig::GetInstance().bDPL2Decoder;
   bool float32_capable = false;
   bool fixed32_capable = false;
+  use_full_HRTF = true;
 
 #if defined(__APPLE__)
   surround_capable = false;
@@ -175,9 +210,6 @@ void OpenALStream::SoundLoop()
 
   u32 ulFrequency = m_mixer->GetSampleRate();
   numBuffers = SConfig::GetInstance().iLatency + 2;  // OpenAL requires a minimum of two buffers
-
-  memset(uiBuffers, 0, numBuffers * sizeof(ALuint));
-  uiSource = 0;
 
   if (alIsExtensionPresent("AL_EXT_float32"))
     float32_capable = true;
@@ -192,15 +224,84 @@ void OpenALStream::SoundLoop()
   ALenum err = alGetError();
 
   // Generate some AL Buffers for streaming
-  alGenBuffers(numBuffers, (ALuint*)uiBuffers);
+  for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+  {
+    alGenBuffers(numBuffers, buffers[i].data());
+  }
   err = CheckALError("generating buffers");
 
   // Generate a Source to playback the Buffers
-  alGenSources(1, &uiSource);
+  if (use_full_HRTF)
+  {
+    alGenSources(SFX_MAX_SOURCES, sources.data());
+  }
+  else
+  {
+    alGenSources(1, sources.data());
+  }
   err = CheckALError("generating sources");
 
   // Set the default sound volume as saved in the config file.
-  alSourcef(uiSource, AL_GAIN, fVolume);
+
+  if (use_full_HRTF)
+  {
+    for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+    {
+      alSourcef(sources[i], AL_GAIN, global_volume);
+    }
+	float scale = 1.0f;
+	// Front left
+	alSource3f(sources[0], AL_POSITION, scale * -1.0f, 0.0f, scale * -1.0f);
+
+	// Front center left
+	alSource3f(sources[1], AL_POSITION, scale * -0.5f, 0.0f, scale * -1.0f);
+
+	// Front center
+	alSource3f(sources[2], AL_POSITION, scale * 0.0f, 0.0f, scale * -1.0f);
+
+	// Front center right
+	alSource3f(sources[3], AL_POSITION, scale * 0.5f, 0.0f, scale * -1.0f);
+
+	// Front right
+	alSource3f(sources[4], AL_POSITION, scale * 1.0f, 0.0f, scale * -1.0f);
+
+	// Side front left
+	alSource3f(sources[5], AL_POSITION, scale * -1.0f, 0.0f, scale * -0.5f);
+
+	// Side front right
+	alSource3f(sources[6], AL_POSITION, scale * 1.0f, 0.0f, scale * -0.5f);
+
+	// Side center left
+	alSource3f(sources[7], AL_POSITION, scale * -1.0f, 0.0f, scale * 0.0f);
+
+	// Side center right
+	alSource3f(sources[8], AL_POSITION, scale * 1.0f, 0.0f, scale * 0.0f);
+
+	// Side back left
+	alSource3f(sources[9], AL_POSITION, scale * -1.0f, 0.0f, scale * 0.5f);
+
+	// Side back right
+	alSource3f(sources[10], AL_POSITION, scale * 1.0f, 0.0f, scale * 0.5f);
+
+	// Back left
+	alSource3f(sources[11], AL_POSITION, scale * -1.0f, 0.0f, scale * 1.0f);
+
+	// Back center left
+	alSource3f(sources[12], AL_POSITION, scale * -0.5f, 0.0f, scale * 1.0f);
+
+	// Back center
+	alSource3f(sources[13], AL_POSITION, scale * 0.0f, 0.0f, scale * 1.0f);
+
+	// Back center right
+	alSource3f(sources[14], AL_POSITION, scale * 0.5f, 0.0f, scale * 1.0f);
+
+	// Back right
+	alSource3f(sources[15], AL_POSITION, scale * 1.0f, 0.0f, scale * 1.0f);
+  }
+  else
+  {
+    alSourcef(sources[0], AL_GAIN, global_volume);
+  }
 
   // TODO: Error handling
   // ALenum err = alGetError();
@@ -212,11 +313,14 @@ void OpenALStream::SoundLoop()
   fsdecoder.set_block_size(OAL_MAX_SAMPLES);
   fsdecoder.set_sample_rate(ulFrequency);
 
+  if (use_full_HRTF)
+    fsdecoder.set_channel_setup(cs_16point1);
+
   while (m_run_thread.IsSet())
   {
     // Block until we have a free buffer
     int numBuffersProcessed;
-    alGetSourcei(uiSource, AL_BUFFERS_PROCESSED, &numBuffersProcessed);
+    alGetSourcei(sources[0], AL_BUFFERS_PROCESSED, &numBuffersProcessed);
     if (numBuffers == numBuffersQueued && !numBuffersProcessed)
     {
       // soundSyncEvent.Wait();
@@ -227,7 +331,16 @@ void OpenALStream::SoundLoop()
     if (numBuffersProcessed)
     {
       ALuint unqueuedBufferIds[OAL_MAX_BUFFERS];
-      alSourceUnqueueBuffers(uiSource, numBuffersProcessed, unqueuedBufferIds);
+      if (use_full_HRTF)
+      {
+        for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+          alSourceUnqueueBuffers(sources[i], numBuffersProcessed, unqueuedBufferIds);
+      }
+      else
+      {
+        alSourceUnqueueBuffers(sources[0], numBuffersProcessed, unqueuedBufferIds);
+      }
+
       err = CheckALError("unqueuing buffers");
 
       numBuffersQueued -= numBuffersProcessed;
@@ -237,86 +350,200 @@ void OpenALStream::SoundLoop()
     unsigned int minSamples = surround_capable ? 256 : 0;
 
     unsigned int numSamples = OAL_MAX_SAMPLES;
-    numSamples = m_mixer->Mix(realtimeBuffer, numSamples);
+    numSamples = m_mixer->Mix(realtime_buffer.data(), numSamples);
 
     // Convert the samples from short to float
     for (u32 i = 0; i < numSamples * STEREO_CHANNELS; ++i)
-      sampleBuffer[i] = static_cast<float>(realtimeBuffer[i]) / INT16_MAX;
+      sample_buffer[i] = static_cast<float>(realtime_buffer[i]) / INT16_MAX;
 
     if (numSamples < minSamples)
       continue;
 
     if (surround_capable)
     {
-      float* dpl2_fs = fsdecoder.decode(sampleBuffer);
-      std::vector<float> dpl2(numSamples * SURROUND_CHANNELS);
+      float* dpl2_fs = fsdecoder.decode(sample_buffer.data());
 
-      // Correct channel mapping for OpenAL
-      // FreeSurround:
-      // FL | FC | FR | BL | BR | LFE
-      // OpenAL:
-      // FL | FR | FC | LFE | BL | BR
-
-      for (u32 i = 0; i < numSamples; ++i)
+      if (use_full_HRTF)
       {
-        dpl2[i * SURROUND_CHANNELS + 0 /*LEFTFRONT*/] =
-            dpl2_fs[i * SURROUND_CHANNELS + 0 /*LEFTFRONT*/];
-        dpl2[i * SURROUND_CHANNELS + 1 /*RIGHTFRONT*/] =
-            dpl2_fs[i * SURROUND_CHANNELS + 2 /*RIGHTFRONT*/];
-        dpl2[i * SURROUND_CHANNELS + 2 /*CENTREFRONT*/] =
-            dpl2_fs[i * SURROUND_CHANNELS + 1 /*CENTREFRONT*/];
-        dpl2[i * SURROUND_CHANNELS + 3 /*sub/lfe*/] =
-            dpl2_fs[i * SURROUND_CHANNELS + 5 /*sub/lfe*/];
-        dpl2[i * SURROUND_CHANNELS + 4 /*LEFTREAR*/] =
-            dpl2_fs[i * SURROUND_CHANNELS + 3 /*LEFTREAR*/];
-        dpl2[i * SURROUND_CHANNELS + 5 /*RIGHTREAR*/] =
-            dpl2_fs[i * SURROUND_CHANNELS + 4 /*RIGHTREAR*/];
-      }
+        // multiplying capacity by 3 just to be sure
+        std::array<std::array<float, OAL_MAX_SAMPLES * 3>, SFX_MAX_SOURCES> dpl2;
 
-      if (float32_capable)
-      {
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_51CHN32, dpl2.data(),
-                     numSamples * FRAME_SURROUND_FLOAT, ulFrequency);
-      }
-      else if (fixed32_capable)
-      {
-        std::vector<int> surround_int32(numSamples * SURROUND_CHANNELS);
+        // Correct channel mapping for OpenAL
+        // FreeSurround:
+        //  ci_front_left -> ci_front_center_left -> ci_front_center ->
+        //  ci_front_center_right -> ci_front_right -> ci_side_front_left ->
+        //  ci_side_front_right -> ci_side_center_left ->
+        //  ci_side_center_right -> ci_side_back_left -> ci_side_back_right ->
+        //  ci_back_left -> ci_back_center_left -> ci_back_center ->
+        //  ci_back_center_right -> ci_back_right -> ci_lfe,
 
-        for (u32 i = 0; i < numSamples * SURROUND_CHANNELS; ++i)
+        for (u32 i = 0; i < numSamples; ++i)
         {
-          surround_int32[i] = static_cast<int>(dpl2[i] * INT32_MAX);
+          // add one to SFX_MAX_SOURCES because of the LFE
+          int channels = SFX_MAX_SOURCES + 1;
+
+          // Front left
+          dpl2[0][i] = dpl2_fs[i * channels + 0];
+
+          // Front center left
+          dpl2[1][i] = dpl2_fs[i * channels + 1];
+
+          // Front center
+          dpl2[2][i] = dpl2_fs[i * channels + 2];
+
+          // Front center right
+          dpl2[3][i] = dpl2_fs[i * channels + 3];
+
+          // Front right
+          dpl2[4][i] = dpl2_fs[i * channels + 4];
+
+          // Side front left
+          dpl2[5][i] = dpl2_fs[i * channels + 5];
+
+          // Side front right
+          dpl2[6][i] = dpl2_fs[i * channels + 6];
+
+          // Side center left
+          dpl2[7][i] = dpl2_fs[i * channels + 7];
+
+          // Side center right
+          dpl2[8][i] = dpl2_fs[i * channels + 8];
+
+          // Side back left
+          dpl2[9][i] = dpl2_fs[i * channels + 9];
+
+          // Side back right
+          dpl2[10][i] = dpl2_fs[i * channels + 10];
+
+          // Back left
+          dpl2[11][i] = dpl2_fs[i * channels + 11];
+
+          // Back center left
+          dpl2[12][i] = dpl2_fs[i * channels + 12];
+
+          // Back center
+          dpl2[13][i] = dpl2_fs[i * channels + 13];
+
+          // Back center right
+          dpl2[14][i] = dpl2_fs[i * channels + 14];
+
+          // Back right
+          dpl2[15][i] = dpl2_fs[i * channels + 15];
+
+          // LFE
+          // no LFE //
         }
 
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_51CHN32, surround_int32.data(),
-                     numSamples * FRAME_SURROUND_INT32, ulFrequency);
+        if (float32_capable)
+        {
+          for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+          {
+            alBufferData(buffers[i][nextBuffer], alGetEnumValue("AL_MONO32F_SOFT"), dpl2[i].data(),
+                         numSamples * SIZE_FLOAT, ulFrequency);
+          }
+        }
+        else if (fixed32_capable)
+        {
+          for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+          {
+            std::vector<int> surround_int32(numSamples);
+
+            for (u32 u = 0; u < numSamples; ++u)
+            {
+              surround_int32[u] = static_cast<int>(dpl2[i][u] * INT32_MAX);
+            }
+
+            alBufferData(buffers[i][nextBuffer], alGetEnumValue("AL_FORMAT_MONO32"), surround_int32.data(),
+                         numSamples * SIZE_INT32, ulFrequency);
+          }
+        }
+        else
+        {
+          for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+          {
+            std::vector<short> surround_short(numSamples);
+
+            for (u32 u = 0; u < numSamples; ++u)
+            {
+              surround_short[i] = static_cast<int>(dpl2[i][u] * INT16_MAX);
+            }
+
+            alBufferData(buffers[i][nextBuffer], AL_FORMAT_MONO16, surround_short.data(),
+                         numSamples * SIZE_SHORT, ulFrequency);
+          }
+        }
       }
       else
       {
-        std::vector<short> surround_short(numSamples * SURROUND_CHANNELS);
+        std::vector<float> dpl2(numSamples * SURROUND_CHANNELS);
 
-        for (u32 i = 0; i < numSamples * SURROUND_CHANNELS; ++i)
+        // Correct channel mapping for OpenAL
+        // FreeSurround:
+        // FL | FC | FR | BL | BR | LFE
+        // OpenAL:
+        // FL | FR | FC | LFE | BL | BR
+
+        for (u32 i = 0; i < numSamples; ++i)
         {
-          surround_short[i] = static_cast<int>(dpl2[i] * INT16_MAX);
+          dpl2[i * SURROUND_CHANNELS + 0 /*LEFTFRONT*/] =
+              dpl2_fs[i * SURROUND_CHANNELS + 0 /*LEFTFRONT*/];
+          dpl2[i * SURROUND_CHANNELS + 1 /*RIGHTFRONT*/] =
+              dpl2_fs[i * SURROUND_CHANNELS + 2 /*RIGHTFRONT*/];
+          dpl2[i * SURROUND_CHANNELS + 2 /*CENTREFRONT*/] =
+              dpl2_fs[i * SURROUND_CHANNELS + 1 /*CENTREFRONT*/];
+          dpl2[i * SURROUND_CHANNELS + 3 /*sub/lfe*/] =
+              dpl2_fs[i * SURROUND_CHANNELS + 5 /*sub/lfe*/];
+          dpl2[i * SURROUND_CHANNELS + 4 /*LEFTREAR*/] =
+              dpl2_fs[i * SURROUND_CHANNELS + 3 /*LEFTREAR*/];
+          dpl2[i * SURROUND_CHANNELS + 5 /*RIGHTREAR*/] =
+              dpl2_fs[i * SURROUND_CHANNELS + 4 /*RIGHTREAR*/];
         }
 
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_51CHN16, surround_short.data(),
-                     numSamples * FRAME_SURROUND_SHORT, ulFrequency);
-      }
+        if (float32_capable)
+        {
+          alBufferData(buffers[0][nextBuffer], AL_FORMAT_51CHN32, dpl2.data(),
+                       numSamples * FRAME_SURROUND_FLOAT, ulFrequency);
+        }
+        else if (fixed32_capable)
+        {
+          std::vector<int> surround_int32(numSamples * SURROUND_CHANNELS);
 
-      err = CheckALError("buffering data");
-      if (err == AL_INVALID_ENUM)
-      {
-        // 5.1 is not supported by the host, fallback to stereo
-        WARN_LOG(AUDIO,
-                 "Unable to set 5.1 surround mode.  Updating OpenAL Soft might fix this issue.");
-        surround_capable = false;
+          for (u32 i = 0; i < numSamples * SURROUND_CHANNELS; ++i)
+          {
+            surround_int32[i] = static_cast<int>(dpl2[i] * INT32_MAX);
+          }
+
+          alBufferData(buffers[0][nextBuffer], AL_FORMAT_51CHN32, surround_int32.data(),
+                       numSamples * FRAME_SURROUND_INT32, ulFrequency);
+        }
+        else
+        {
+          std::vector<short> surround_short(numSamples * SURROUND_CHANNELS);
+
+          for (u32 i = 0; i < numSamples * SURROUND_CHANNELS; ++i)
+          {
+            surround_short[i] = static_cast<int>(dpl2[i] * INT16_MAX);
+          }
+
+          alBufferData(buffers[0][nextBuffer], AL_FORMAT_51CHN16, surround_short.data(),
+                       numSamples * FRAME_SURROUND_SHORT, ulFrequency);
+        }
+
+        err = CheckALError("buffering data");
+        if (err == AL_INVALID_ENUM)
+        {
+          // 5.1 is not supported by the host, fallback to stereo
+          WARN_LOG(AUDIO,
+                   "Unable to set 5.1 surround mode.  Updating OpenAL Soft might fix this issue.");
+          surround_capable = false;
+        }
       }
     }
     else
     {
       if (float32_capable)
       {
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_STEREO_FLOAT32, sampleBuffer,
+        alBufferData(buffers[0][nextBuffer], AL_FORMAT_STEREO_FLOAT32, sample_buffer.data(),
                      numSamples * FRAME_STEREO_FLOAT, ulFrequency);
 
         err = CheckALError("buffering float32 data");
@@ -329,33 +556,50 @@ void OpenALStream::SoundLoop()
       {
         std::vector<int> stereo_int32(numSamples * STEREO_CHANNELS);
         for (u32 i = 0; i < numSamples * STEREO_CHANNELS; ++i)
-          stereo_int32[i] = static_cast<int>(sampleBuffer[i] * INT32_MAX);
+          stereo_int32[i] = static_cast<int>(sample_buffer[i] * INT32_MAX);
 
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_STEREO32, stereo_int32.data(),
+        alBufferData(buffers[0][nextBuffer], AL_FORMAT_STEREO32, stereo_int32.data(),
                      numSamples * FRAME_STEREO_INT32, ulFrequency);
       }
       else
       {
         std::vector<short> stereo(numSamples * STEREO_CHANNELS);
         for (u32 i = 0; i < numSamples * STEREO_CHANNELS; ++i)
-          stereo[i] = static_cast<short>(sampleBuffer[i] * INT16_MAX);
+          stereo[i] = static_cast<short>(sample_buffer[i] * INT16_MAX);
 
-        alBufferData(uiBuffers[nextBuffer], AL_FORMAT_STEREO16, stereo.data(),
+        alBufferData(buffers[0][nextBuffer], AL_FORMAT_STEREO16, stereo.data(),
                      numSamples * FRAME_STEREO_SHORT, ulFrequency);
       }
     }
 
-    alSourceQueueBuffers(uiSource, 1, &uiBuffers[nextBuffer]);
+    if (use_full_HRTF)
+    {
+      for (int i = 0; i < SFX_MAX_SOURCES; ++i)
+      {
+        alSourceQueueBuffers(sources[i], 1, &buffers[i][nextBuffer]);
+      }
+    }
+    else
+    {
+      alSourceQueueBuffers(sources[0], 1, &buffers[0][nextBuffer]);
+    }    
     err = CheckALError("queuing buffers");
 
     numBuffersQueued++;
     nextBuffer = (nextBuffer + 1) % numBuffers;
 
-    alGetSourcei(uiSource, AL_SOURCE_STATE, &iState);
+    alGetSourcei(sources[0], AL_SOURCE_STATE, &iState);
     if (iState != AL_PLAYING)
     {
       // Buffer underrun occurred, resume playback
-      alSourcePlay(uiSource);
+      if (use_full_HRTF)
+      {
+        alSourcePlayv(SFX_MAX_SOURCES, sources.data());
+      }
+      else
+      {
+        alSourcePlay(sources[0]);
+      }
       err = CheckALError("occurred resuming playback");
     }
   }

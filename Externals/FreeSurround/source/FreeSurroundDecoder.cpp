@@ -146,13 +146,29 @@ void DPL2FSDecoder::set_block_size(unsigned int v) {
   outbuf.resize((N + N / 2) * C);
   signal.resize(C, vector<cplx>(N));
 
-  // init the window function
+  // re-init the window function
   for (unsigned int k = 0; k < N; k++)
     wnd[k] = sqrt(0.5 * (1 - cos(2 * pi * k / N)) / N);
 
   // update bass redirection parameters
   set_low_cutoff(40.0f / samplerate * 2);
   set_high_cutoff(90.0f / samplerate * 2);
+}
+
+void DPL2FSDecoder::set_channel_setup(channel_setup v) {
+  // reset and remove all samples
+  flush();
+
+  setup = v;
+  C = static_cast<unsigned int>(chn_alloc[setup].size());
+
+  // allocate per-channel buffers
+  outbuf.resize((N + N / 2) * C);
+  signal.resize(C, vector<cplx>(N));
+
+  // re-init the window function
+  for (unsigned int k = 0; k < N; k++)
+    wnd[k] = sqrt(0.5 * (1 - cos(2 * pi * k / N)) / N);
 }
 
 // helper functions

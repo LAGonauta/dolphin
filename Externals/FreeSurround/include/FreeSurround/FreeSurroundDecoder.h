@@ -164,6 +164,7 @@ public:
   void set_bass_redirection(bool v);
   void set_sample_rate(unsigned int v);
   void set_block_size(unsigned int v);
+  void set_channel_setup(channel_setup v);
 
   // number of samples currently held in the buffer
   unsigned int buffered();
