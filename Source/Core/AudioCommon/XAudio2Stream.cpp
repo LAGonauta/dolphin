@@ -8,6 +8,7 @@
 #include "Common/Event.h"
 #include "Common/Logging/Log.h"
 #include "Common/MsgHandler.h"
+#include "Core/ConfigManager.h"
 
 #ifndef XAUDIO2_DLL
 #error You are building this module against the wrong version of DirectX. You probably need to remove DXSDK_DIR from your include path.
@@ -22,6 +23,8 @@ private:
   std::unique_ptr<BYTE[]> xaudio_buffer;
 
   void SubmitBuffer(PBYTE buf_data);
+
+  bool m_use_surround = SConfig::GetInstance().bDPL2Decoder;
 
 public:
   StreamingVoiceContext(IXAudio2* pXAudio2, CMixer* pMixer, Common::Event& pSyncEvent);
@@ -41,15 +44,26 @@ public:
 
 const int NUM_BUFFERS = 3;
 const int SAMPLES_PER_BUFFER = 96;
+const int SAMPLES_PER_BUFFER_SURROUND = 256;
 
 const int NUM_CHANNELS = 2;
 const int BUFFER_SIZE = SAMPLES_PER_BUFFER * NUM_CHANNELS;
 const int BUFFER_SIZE_BYTES = BUFFER_SIZE * sizeof(s16);
 
+const int NUM_CHANNELS_SURROUND = 6;
+const int BUFFER_SIZE_SURROUND = SAMPLES_PER_BUFFER_SURROUND * NUM_CHANNELS_SURROUND;
+const int BUFFER_SIZE_BYTES_SURROUND = BUFFER_SIZE_SURROUND * sizeof(float);
 void StreamingVoiceContext::SubmitBuffer(PBYTE buf_data)
 {
   XAUDIO2_BUFFER buf = {};
-  buf.AudioBytes = BUFFER_SIZE_BYTES;
+  if (m_use_surround)
+  {
+    buf.AudioBytes = BUFFER_SIZE_BYTES_SURROUND;
+  }
+  else
+  {
+    buf.AudioBytes = BUFFER_SIZE_BYTES;
+  }
   buf.pContext = buf_data;
   buf.pAudioData = buf_data;
 
@@ -58,21 +72,38 @@ void StreamingVoiceContext::SubmitBuffer(PBYTE buf_data)
 
 StreamingVoiceContext::StreamingVoiceContext(IXAudio2* pXAudio2, CMixer* pMixer,
                                              Common::Event& pSyncEvent)
-    : m_mixer(pMixer), m_sound_sync_event(pSyncEvent),
-      xaudio_buffer(new BYTE[NUM_BUFFERS * BUFFER_SIZE_BYTES]())
+    : m_mixer(pMixer), m_sound_sync_event(pSyncEvent)
 {
   WAVEFORMATEXTENSIBLE wfx = {};
-
   wfx.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
   wfx.Format.nSamplesPerSec = m_mixer->GetSampleRate();
-  wfx.Format.nChannels = 2;
-  wfx.Format.wBitsPerSample = 16;
+
+  if (m_use_surround)
+  {
+    xaudio_buffer = std::unique_ptr<BYTE[]>(new BYTE[NUM_BUFFERS * BUFFER_SIZE_BYTES_SURROUND]);
+
+    wfx.Format.nChannels = 6;
+    wfx.Format.wBitsPerSample = 32;
+    wfx.Format.cbSize = 22;
+    wfx.Samples.wValidBitsPerSample = 32;
+    wfx.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER |
+                        SPEAKER_LOW_FREQUENCY | SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT;
+    wfx.SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
+  }
+  else
+  {
+    xaudio_buffer = std::unique_ptr<BYTE[]>(new BYTE[NUM_BUFFERS * BUFFER_SIZE_BYTES]);
+
+    wfx.Format.nChannels = 2;
+    wfx.Format.wBitsPerSample = 16;
+    wfx.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
+    wfx.Samples.wValidBitsPerSample = 16;
+    wfx.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+    wfx.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+  }
+
   wfx.Format.nBlockAlign = wfx.Format.nChannels * wfx.Format.wBitsPerSample / 8;
   wfx.Format.nAvgBytesPerSec = wfx.Format.nSamplesPerSec * wfx.Format.nBlockAlign;
-  wfx.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
-  wfx.Samples.wValidBitsPerSample = 16;
-  wfx.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
-  wfx.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
 
   // create source voice
   HRESULT hr;
@@ -86,8 +117,16 @@ StreamingVoiceContext::StreamingVoiceContext(IXAudio2* pXAudio2, CMixer* pMixer,
   m_source_voice->Start();
 
   // start buffers with silence
-  for (int i = 0; i != NUM_BUFFERS; ++i)
-    SubmitBuffer(xaudio_buffer.get() + (i * BUFFER_SIZE_BYTES));
+  if (m_use_surround)
+  {
+    for (int i = 0; i != NUM_BUFFERS; ++i)
+      SubmitBuffer(xaudio_buffer.get() + (i * BUFFER_SIZE_BYTES_SURROUND));
+  }
+  else
+  {
+    for (int i = 0; i != NUM_BUFFERS; ++i)
+      SubmitBuffer(xaudio_buffer.get() + (i * BUFFER_SIZE_BYTES));
+  }
 }
 
 StreamingVoiceContext::~StreamingVoiceContext()
@@ -121,7 +160,14 @@ void StreamingVoiceContext::OnBufferEnd(void* context)
   // m_sound_sync_event->Wait(); // sync
   // m_sound_sync_event->Spin(); // or tight sync
 
-  m_mixer->Mix(static_cast<short*>(context), SAMPLES_PER_BUFFER);
+  if (m_use_surround)
+  {
+    m_mixer->MixSurround(static_cast<float*>(context), SAMPLES_PER_BUFFER_SURROUND);
+  }
+  else
+  {
+    m_mixer->Mix(static_cast<short*>(context), SAMPLES_PER_BUFFER);
+  }
   SubmitBuffer(static_cast<BYTE*>(context));
 }
 
@@ -185,11 +231,25 @@ bool XAudio2::Start()
 
   // XAudio2 master voice
   // XAUDIO2_DEFAULT_CHANNELS instead of 2 for expansion?
-  if (FAILED(hr = m_xaudio2->CreateMasteringVoice(&m_mastering_voice, 2, m_mixer->GetSampleRate())))
+  if (SConfig::GetInstance().bDPL2Decoder)
   {
-    PanicAlert("XAudio2 master voice creation failed: %#X", hr);
-    Stop();
-    return false;
+    if (FAILED(
+            hr = m_xaudio2->CreateMasteringVoice(&m_mastering_voice, 6, m_mixer->GetSampleRate())))
+    {
+      PanicAlert("XAudio2 master voice creation failed: %#X", hr);
+      Stop();
+      return false;
+    }
+  }
+  else
+  {
+    if (FAILED(
+            hr = m_xaudio2->CreateMasteringVoice(&m_mastering_voice, 2, m_mixer->GetSampleRate())))
+    {
+      PanicAlert("XAudio2 master voice creation failed: %#X", hr);
+      Stop();
+      return false;
+    }
   }
 
   // Volume
