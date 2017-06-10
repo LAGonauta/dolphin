@@ -4,8 +4,10 @@
 
 #pragma once
 
+#include <FreeSurround/FreeSurroundDecoder.h>
 #include <array>
 #include <atomic>
+#include <queue>
 
 #include "AudioCommon/AudioStretcher.h"
 #include "AudioCommon/WaveFile.h"
@@ -46,6 +48,11 @@ private:
   static constexpr int MAX_FREQ_SHIFT = 200;  // Per 32000 Hz
   static constexpr float CONTROL_FACTOR = 0.2f;
   static constexpr u32 CONTROL_AVG = 32;  // In freq_shift per FIFO size offset
+
+  DPL2FSDecoder m_fsdecoder;
+  const unsigned int SURROUND_FRAMES_PER_CALL = 512;
+  const unsigned int SURROUND_CHANNELS = 6;
+  std::queue<float> m_floatsurround_buffer;
 
   class MixerFifo final
   {
