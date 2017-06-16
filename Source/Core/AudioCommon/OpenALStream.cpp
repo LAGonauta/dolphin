@@ -203,7 +203,6 @@ void OpenALStream::SoundLoop()
   // Should we make these larger just in case the mixer ever sends more samples
   // than what we request?
   realtime_buffer.resize(frames_per_buffer * STEREO_CHANNELS);
-  sample_buffer.resize(frames_per_buffer * STEREO_CHANNELS);
   source = 0;
 
   // Clear error state before querying or else we get false positives.
@@ -325,44 +324,11 @@ void OpenALStream::SoundLoop()
     {
       u32 rendered_frames = m_mixer->Mix(realtime_buffer.data(), min_frames);
 
-      // Convert the samples from short to float
-      for (u32 i = 0; i < rendered_frames * STEREO_CHANNELS; ++i)
-        sample_buffer[i] = static_cast<float>(realtime_buffer[i]) / (1 << 15);
-
       if (!rendered_frames)
         continue;
 
-      if (float32_capable)
-      {
-        alBufferData(buffers[next_buffer], AL_FORMAT_STEREO_FLOAT32, sample_buffer.data(),
-                     rendered_frames * FRAME_STEREO_FLOAT, frequency);
-
-        err = CheckALError("buffering float32 data");
-        if (err == AL_INVALID_ENUM)
-        {
-          float32_capable = false;
-        }
-      }
-      else if (fixed32_capable)
-      {
-        // Clamping is not necessary here, samples are always between (-1,1)
-        int stereo_int32[OAL_MAX_FRAMES * STEREO_CHANNELS];
-        for (u32 i = 0; i < rendered_frames * STEREO_CHANNELS; ++i)
-          stereo_int32[i] = (int)((float)sample_buffer[i] * (INT64_C(1) << 31));
-
-        alBufferData(buffers[next_buffer], AL_FORMAT_STEREO32, stereo_int32,
-                     rendered_frames * FRAME_STEREO_INT32, frequency);
-      }
-      else
-      {
-        // Convert the samples from float to short
-        short stereo[OAL_MAX_FRAMES * STEREO_CHANNELS];
-        for (u32 i = 0; i < rendered_frames * STEREO_CHANNELS; ++i)
-          stereo[i] = (short)((float)sample_buffer[i] * (1 << 15));
-
-        alBufferData(buffers[next_buffer], AL_FORMAT_STEREO16, stereo,
-                     rendered_frames * FRAME_STEREO_SHORT, frequency);
-      }
+      alBufferData(buffers[next_buffer], AL_FORMAT_STEREO16, realtime_buffer.data(),
+                   rendered_frames * FRAME_STEREO_SHORT, frequency);
     }
 
     alSourceQueueBuffers(source, 1, &buffers[next_buffer]);
