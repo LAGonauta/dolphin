@@ -234,7 +234,7 @@ void OpenALStream::SoundLoop()
     alGetSourcei(source, AL_BUFFERS_PROCESSED, &num_buffers_processed);
     if (num_buffers_queued == OAL_BUFFERS && !num_buffers_processed)
     {
-      // sound_sync_event.Wait();
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
       continue;
     }
 
