@@ -191,12 +191,6 @@ void OpenALStream::SoundLoop()
     frames_per_buffer = OAL_MAX_FRAMES;
   }
 
-  // DPL2 needs a minimum number of samples to work (FWRDURATION)
-  if (use_surround && frames_per_buffer < 240)
-  {
-    frames_per_buffer = 240;
-  }
-
   INFO_LOG(AUDIO, "Using %d buffers, each with %d audio frames for a total of %d.", OAL_BUFFERS,
            frames_per_buffer, frames_per_buffer * OAL_BUFFERS);
 
