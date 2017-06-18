@@ -277,16 +277,7 @@ void OpenALStream::SoundLoop()
 
         for (u32 i = 0; i < rendered_frames * SURROUND_CHANNELS; ++i)
         {
-          // For some reason the ffdshow's DPL2 decoder outputs samples bigger than 1.
-          // Most are close to 2.5 and some go up to 8. Hard clamping here, we need to
-          // fix the decoder or implement a limiter.
-          dpl2[i] = dpl2[i] * (INT64_C(1) << 31);
-          if (dpl2[i] > INT_MAX)
-            surround_int32[i] = INT_MAX;
-          else if (dpl2[i] < INT_MIN)
-            surround_int32[i] = INT_MIN;
-          else
-            surround_int32[i] = static_cast<int>(dpl2[i]);
+          surround_int32[i] = static_cast<int>(dpl2[i] * (INT64_C(1) << 31));
         }
 
         alBufferData(buffers[next_buffer], AL_FORMAT_51CHN32, surround_int32.data(),
@@ -298,13 +289,7 @@ void OpenALStream::SoundLoop()
 
         for (u32 i = 0; i < rendered_frames * SURROUND_CHANNELS; ++i)
         {
-          dpl2[i] = dpl2[i] * (1 << 15);
-          if (dpl2[i] > SHRT_MAX)
-            surround_short[i] = SHRT_MAX;
-          else if (dpl2[i] < SHRT_MIN)
-            surround_short[i] = SHRT_MIN;
-          else
-            surround_short[i] = static_cast<int>(dpl2[i]);
+          surround_short[i] = static_cast<int>(dpl2[i] * (1 << 15));
         }
 
         alBufferData(buffers[next_buffer], AL_FORMAT_51CHN16, surround_short.data(),
