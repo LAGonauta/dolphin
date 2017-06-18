@@ -17,7 +17,7 @@ CMixer::CMixer(unsigned int BackendSampleRate)
     : m_sampleRate(BackendSampleRate), m_stretcher(BackendSampleRate)
 {
   INFO_LOG(AUDIO_INTERFACE, "Mixer is initialized");
-  m_fsdecoder.Init(cs_5point1, SURROUND_FRAMES_PER_CALL, m_sampleRate);
+  m_fsdecoder.Init(cs_7point1, SURROUND_FRAMES_PER_CALL, m_sampleRate);
 }
 
 CMixer::~CMixer()
@@ -192,17 +192,19 @@ unsigned int CMixer::MixSurround(float* samples, unsigned int num_samples)
     // Add to queue and fix channel mapping
     // Maybe modify FreeSurround to output the correct mapping?
     // FreeSurround:
-    // FL | FC | FR | BL | BR | LFE
+    // FL | FC | FR | SL | SR |  BL | BR | LFE
     // Most backends:
-    // FL | FR | FC | LFE | BL | BR
+    // FL | FR | FC | LFE | BL | BR | SL | SR
     for (u32 i = 0; i < SURROUND_FRAMES_PER_CALL; ++i)
     {
       m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 0 /*LEFTFRONT*/]);
       m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 2 /*RIGHTFRONT*/]);
       m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 1 /*CENTREFRONT*/]);
-      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 5 /*sub/lfe*/]);
-      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 3 /*LEFTREAR*/]);
-      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 4 /*RIGHTREAR*/]);
+      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 7 /*sub/lfe*/]);
+      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 5 /*BACKLEFT*/]);
+      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 6 /*BACKRIGHT*/]);
+      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 3 /*SIDELEFT*/]);
+      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 4 /*SIDERIGHT*/]);
     }
 
     --num_fs_dec_requests;

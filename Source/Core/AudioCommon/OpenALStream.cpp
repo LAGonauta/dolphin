@@ -251,18 +251,9 @@ void OpenALStream::SoundLoop()
       if (rendered_frames < min_frames)
         continue;
 
-      // zero-out the subwoofer channel - DPL2Decode generates a pretty
-      // good 5.0 but not a good 5.1 output.  Sadly there is not a 5.0
-      // AL_FORMAT_50CHN32 to make this super-explicit.
-      // DPL2Decode output: LEFTFRONT, RIGHTFRONT, CENTREFRONT, (sub), LEFTREAR, RIGHTREAR
-      for (u32 i = 0; i < rendered_frames; ++i)
-      {
-        dpl2[i * SURROUND_CHANNELS + 3 /*sub/lfe*/] = 0.0f;
-      }
-
       if (float32_capable)
       {
-        alBufferData(buffers[next_buffer], AL_FORMAT_51CHN32, dpl2.data(),
+        alBufferData(buffers[next_buffer], AL_FORMAT_71CHN32, dpl2.data(),
                      rendered_frames * FRAME_SURROUND_FLOAT, frequency);
       }
       else if (fixed32_capable)
@@ -274,7 +265,7 @@ void OpenALStream::SoundLoop()
           surround_int32[i] = static_cast<int>(dpl2[i] * (INT64_C(1) << 31));
         }
 
-        alBufferData(buffers[next_buffer], AL_FORMAT_51CHN32, surround_int32.data(),
+        alBufferData(buffers[next_buffer], AL_FORMAT_71CHN32, surround_int32.data(),
                      rendered_frames * FRAME_SURROUND_INT32, frequency);
       }
       else
@@ -286,7 +277,7 @@ void OpenALStream::SoundLoop()
           surround_short[i] = static_cast<int>(dpl2[i] * (1 << 15));
         }
 
-        alBufferData(buffers[next_buffer], AL_FORMAT_51CHN16, surround_short.data(),
+        alBufferData(buffers[next_buffer], AL_FORMAT_71CHN16, surround_short.data(),
                      rendered_frames * FRAME_SURROUND_SHORT, frequency);
       }
 

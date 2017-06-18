@@ -30,7 +30,7 @@
 #define OAL_BUFFERS 3
 #define OAL_MAX_FRAMES 8192
 #define STEREO_CHANNELS 2
-#define SURROUND_CHANNELS 6  // number of channels in surround mode
+#define SURROUND_CHANNELS 8  // number of channels in surround mode
 #define SIZE_SHORT 2
 #define SIZE_INT32 4
 #define SIZE_FLOAT 4  // size of a float in bytes

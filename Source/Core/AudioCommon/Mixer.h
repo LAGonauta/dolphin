@@ -51,7 +51,7 @@ private:
 
   DPL2FSDecoder m_fsdecoder;
   const unsigned int SURROUND_FRAMES_PER_CALL = 512;
-  const unsigned int SURROUND_CHANNELS = 6;
+  const unsigned int SURROUND_CHANNELS = 8;
   std::queue<float> m_floatsurround_buffer;
 
   class MixerFifo final
