@@ -116,15 +116,15 @@ unsigned int CMixer::MixerFifo::Mix(short* samples, unsigned int numSamples,
   return actual_sample_count;
 }
 
-unsigned int CMixer::Mix(short* samples, unsigned int num_samples)
+unsigned int CMixer::Mix(short* samples, unsigned int num_samples, bool all_frames)
 {
   if (!samples)
     return 0;
 
-  memset(samples, 0, num_samples * 2 * sizeof(short));
-
   if (SConfig::GetInstance().m_audio_stretch)
   {
+    memset(samples, 0, num_samples * 2 * sizeof(short));
+
     unsigned int available_samples =
         std::min(m_dma_mixer.AvailableSamples(), m_streaming_mixer.AvailableSamples());
 
@@ -144,12 +144,76 @@ unsigned int CMixer::Mix(short* samples, unsigned int num_samples)
   }
   else
   {
-    m_dma_mixer.Mix(samples, num_samples, true);
-    m_streaming_mixer.Mix(samples, num_samples, true);
-    m_wiimote_speaker_mixer.Mix(samples, num_samples, true);
-    m_is_stretching = false;
-  }
+    if (all_frames)
+    {
+      unsigned int available_samples =
+        std::min(m_dma_mixer.AvailableSamples(), m_streaming_mixer.AvailableSamples());
 
+      if (available_samples < num_samples)
+      {
+        return 0;
+      }
+      else
+      {
+        memset(samples, 0, available_samples * 2 * sizeof(short));
+
+        m_dma_mixer.Mix(samples, available_samples, true);
+        m_streaming_mixer.Mix(samples, available_samples, true);
+        m_wiimote_speaker_mixer.Mix(samples, available_samples, true);
+        m_is_stretching = false;
+
+        // To calculate average delay
+        //m_audio_delay_data.push_back(available_samples / static_cast<float>(this->GetSampleRate()) * 2 * 1000);
+        //float audio_delay_average = 0;
+        //for (size_t i = 0; i < m_audio_delay_data.size(); ++i)
+        //{
+        //  audio_delay_average += m_audio_delay_data[i];
+        //}
+
+        //if (m_audio_delay_data.size())
+        //  audio_delay_average = audio_delay_average / m_audio_delay_data.size();
+
+        //if (m_audio_delay_data.size() > 15)
+        //  m_audio_delay_data.pop_front();
+
+        //// Already rendered + backend + sink (sink not considered in this calc)
+        //INFO_LOG(AUDIO, "Current audio delay: %f ms", audio_delay_average);
+
+        return available_samples;
+      }
+    }
+    else
+    {
+      memset(samples, 0, num_samples * 2 * sizeof(short));
+
+      m_dma_mixer.Mix(samples, num_samples, true);
+      m_streaming_mixer.Mix(samples, num_samples, true);
+      m_wiimote_speaker_mixer.Mix(samples, num_samples, true);
+      m_is_stretching = false;
+
+      //unsigned int available_samples =
+      //  std::min(m_dma_mixer.AvailableSamples(), m_streaming_mixer.AvailableSamples());
+
+      //if (available_samples)
+      //{
+      //  m_audio_delay_data.push_back(available_samples / static_cast<float>(this->GetSampleRate()) * 2 * 1000);
+      //  float audio_delay_average = 0;
+      //  for (size_t i = 0; i < m_audio_delay_data.size(); ++i)
+      //  {
+      //    audio_delay_average += m_audio_delay_data[i];
+      //  }
+
+      //  if (m_audio_delay_data.size())
+      //    audio_delay_average = audio_delay_average / m_audio_delay_data.size();
+
+      //  if (m_audio_delay_data.size() > 15)
+      //    m_audio_delay_data.pop_front();
+
+      //  // Already rendered + backend + sink (sink not considered in this calc)
+      //  INFO_LOG(AUDIO, "Current audio delay: %f ms", audio_delay_average);
+      //}
+    }
+  }
   return num_samples;
 }
 

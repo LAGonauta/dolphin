@@ -196,7 +196,7 @@ void OpenALStream::SoundLoop()
 
   // Should we make these larger just in case the mixer ever sends more samples
   // than what we request?
-  realtime_buffer.resize(frames_per_buffer * STEREO_CHANNELS);
+  realtime_buffer.resize(frames_per_buffer * STEREO_CHANNELS * 128);
   source = 0;
 
   // Clear error state before querying or else we get false positives.
@@ -239,8 +239,8 @@ void OpenALStream::SoundLoop()
 
     if (num_buffers_queued == OAL_BUFFERS)
     {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      //sound_sync_event.WaitFor(std::chrono::milliseconds(1));
+      //std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      sound_sync_event.Wait();
       continue;
     }
 

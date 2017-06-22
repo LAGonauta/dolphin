@@ -20,7 +20,7 @@ public:
   ~CMixer();
 
   // Called from audio threads
-  unsigned int Mix(short* samples, unsigned int numSamples);
+  unsigned int Mix(short* samples, unsigned int numSamples, bool all_frames = false);
   unsigned int MixSurround(float* samples, unsigned int num_samples);
 
   // Called from main thread
@@ -53,6 +53,7 @@ private:
   const unsigned int SURROUND_FRAMES_PER_CALL = 512;
   const unsigned int SURROUND_CHANNELS = 8;
   std::queue<float> m_floatsurround_buffer;
+  //std::deque<float> m_audio_delay_data;
 
   class MixerFifo final
   {
