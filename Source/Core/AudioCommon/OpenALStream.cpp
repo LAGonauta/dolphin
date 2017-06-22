@@ -301,24 +301,21 @@ void OpenALStream::SoundLoop()
       alBufferData(buffers[next_buffer], AL_FORMAT_STEREO16, realtime_buffer.data(),
                    rendered_frames * FRAME_STEREO_SHORT, frequency);
 
-      // To calculate average delay
-      m_audio_delay_data.push_back(rendered_frames / static_cast<float>(frequency) * 2 * 1000);
+      // To calculate total delay
+      m_audio_delay_data.push_back(rendered_frames);
 
       // Remove excess data
       while (m_audio_delay_data.size() > num_buffers_queued)
         m_audio_delay_data.pop_front();
 
-      float audio_delay_average = 0;
+      float audio_delay_total = 0;
       for (size_t i = 0; i < m_audio_delay_data.size(); ++i)
       {
-        audio_delay_average += m_audio_delay_data[i];
-      }
-
-      if (m_audio_delay_data.size())
-        audio_delay_average = audio_delay_average / m_audio_delay_data.size();
+        audio_delay_total += m_audio_delay_data[i];
+      }   
 
       // Now filter
-      m_audio_delay_average_filtered.push_back(audio_delay_average);
+      m_audio_delay_average_filtered.push_back(audio_delay_total);
 
       float audio_delay_filtered = 0;
       for (size_t i = 0; i < m_audio_delay_average_filtered.size(); ++i)
@@ -333,7 +330,7 @@ void OpenALStream::SoundLoop()
         m_audio_delay_average_filtered.pop_front();
 
       // Already rendered + backend + sink (sink not considered in this calc)
-      INFO_LOG(AUDIO, "Current audio delay: %f ms", audio_delay_filtered);
+      INFO_LOG(AUDIO, "Num buffers queued: %d. Current audio delay: %f ms", m_audio_delay_data.size(), audio_delay_filtered / static_cast<float>(frequency) * 2 * 1000);
     }
 
     alSourceQueueBuffers(source, 1, &buffers[next_buffer]);

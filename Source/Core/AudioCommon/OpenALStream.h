@@ -27,7 +27,7 @@
 #endif
 
 // OpenAL requires a minimum of two buffers, three or more recommended
-#define OAL_BUFFERS 3
+#define OAL_BUFFERS 2
 #define OAL_MAX_FRAMES 8192
 #define STEREO_CHANNELS 2
 #define SURROUND_CHANNELS 8  // number of channels in surround mode
@@ -80,8 +80,8 @@ private:
 
   std::vector<short> realtime_buffer;
   std::array<ALuint, OAL_BUFFERS> buffers;
-  std::deque<float> m_audio_delay_data;
-  std::deque<float> m_audio_delay_average_filtered;
+  std::deque<short> m_audio_delay_data;
+  std::deque<short> m_audio_delay_average_filtered;
   ALuint source;
   ALfloat m_volume;
 
