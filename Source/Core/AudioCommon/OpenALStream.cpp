@@ -196,7 +196,7 @@ void OpenALStream::SoundLoop()
 
   // Should we make these larger just in case the mixer ever sends more samples
   // than what we request?
-  realtime_buffer.resize(frames_per_buffer * STEREO_CHANNELS * 128);
+  realtime_buffer.resize(frames_per_buffer * STEREO_CHANNELS * OAL_MAX_FRAMES);
   source = 0;
 
   // Clear error state before querying or else we get false positives.
@@ -293,13 +293,47 @@ void OpenALStream::SoundLoop()
     }
     else
     {
-      u32 rendered_frames = m_mixer->Mix(realtime_buffer.data(), min_frames);
+      u32 rendered_frames = m_mixer->Mix(realtime_buffer.data(), min_frames, true);
 
       if (!rendered_frames)
         continue;
 
       alBufferData(buffers[next_buffer], AL_FORMAT_STEREO16, realtime_buffer.data(),
                    rendered_frames * FRAME_STEREO_SHORT, frequency);
+
+      // To calculate average delay
+      m_audio_delay_data.push_back(rendered_frames / static_cast<float>(frequency) * 2 * 1000);
+
+      // Remove excess data
+      while (m_audio_delay_data.size() > num_buffers_queued)
+        m_audio_delay_data.pop_front();
+
+      float audio_delay_average = 0;
+      for (size_t i = 0; i < m_audio_delay_data.size(); ++i)
+      {
+        audio_delay_average += m_audio_delay_data[i];
+      }
+
+      if (m_audio_delay_data.size())
+        audio_delay_average = audio_delay_average / m_audio_delay_data.size();
+
+      // Now filter
+      m_audio_delay_average_filtered.push_back(audio_delay_average);
+
+      float audio_delay_filtered = 0;
+      for (size_t i = 0; i < m_audio_delay_average_filtered.size(); ++i)
+      {
+        audio_delay_filtered += m_audio_delay_average_filtered[i];
+      }
+
+      if (m_audio_delay_average_filtered.size())
+        audio_delay_filtered = audio_delay_filtered / m_audio_delay_average_filtered.size();
+
+      if (m_audio_delay_average_filtered.size() > 15)
+        m_audio_delay_average_filtered.pop_front();
+
+      // Already rendered + backend + sink (sink not considered in this calc)
+      INFO_LOG(AUDIO, "Current audio delay: %f ms", audio_delay_filtered);
     }
 
     alSourceQueueBuffers(source, 1, &buffers[next_buffer]);

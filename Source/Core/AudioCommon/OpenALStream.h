@@ -80,6 +80,8 @@ private:
 
   std::vector<short> realtime_buffer;
   std::array<ALuint, OAL_BUFFERS> buffers;
+  std::deque<float> m_audio_delay_data;
+  std::deque<float> m_audio_delay_average_filtered;
   ALuint source;
   ALfloat m_volume;
 

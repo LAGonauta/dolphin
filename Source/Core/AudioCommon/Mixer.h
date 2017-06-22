@@ -53,7 +53,7 @@ private:
   const unsigned int SURROUND_FRAMES_PER_CALL = 512;
   const unsigned int SURROUND_CHANNELS = 8;
   std::queue<float> m_floatsurround_buffer;
-  //std::deque<float> m_audio_delay_data;
+  std::deque<float> m_audio_delay_data;
 
   class MixerFifo final
   {
