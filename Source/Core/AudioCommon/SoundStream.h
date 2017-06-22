@@ -16,7 +16,7 @@ protected:
   bool m_muted;
 
 public:
-  SoundStream() : m_mixer(new CMixer(48000)), m_muted(false) {}
+  SoundStream() : m_mixer(new CMixer(32000)), m_muted(false) {}
   virtual ~SoundStream() {}
   static bool isValid() { return false; }
   CMixer* GetMixer() const { return m_mixer.get(); }

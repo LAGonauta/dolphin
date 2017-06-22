@@ -219,19 +219,15 @@ void OpenALStream::SoundLoop()
   unsigned int next_buffer = 0;
   unsigned int num_buffers_queued = 0;
   ALint state = 0;
+  unsigned int min_frames = frames_per_buffer;
 
   while (m_run_thread.IsSet())
   {
     // Block until we have a free buffer
     int num_buffers_processed;
     alGetSourcei(source, AL_BUFFERS_PROCESSED, &num_buffers_processed);
-    if (num_buffers_queued == OAL_BUFFERS && !num_buffers_processed)
-    {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      continue;
-    }
 
-    // Remove the Buffer from the Queue.
+    // Remove any buffer from the queue.
     if (num_buffers_processed)
     {
       std::array<ALuint, OAL_BUFFERS> unqueued_buffer_ids;
@@ -241,7 +237,12 @@ void OpenALStream::SoundLoop()
       num_buffers_queued -= num_buffers_processed;
     }
 
-    unsigned int min_frames = frames_per_buffer;
+    if (num_buffers_queued == OAL_BUFFERS)
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      //sound_sync_event.WaitFor(std::chrono::milliseconds(1));
+      continue;
+    }
 
     if (use_surround)
     {
