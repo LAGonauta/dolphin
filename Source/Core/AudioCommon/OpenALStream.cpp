@@ -39,8 +39,10 @@ static HMODULE s_openal_dll = nullptr;
   X(alSourcef)                                                                                     \
   X(alSourcei)                                                                                     \
   X(alSourcePlay)                                                                                  \
+  X(alSourcePlayv)                                                                                 \
   X(alSourceQueueBuffers)                                                                          \
   X(alSourceStop)                                                                                  \
+  X(alSourceStopv)                                                                                 \
   X(alSourceUnqueueBuffers)                                                                        \
   X(alGetEnumValue)                                                                                \
   X(alGetProcAddress)
@@ -169,26 +171,6 @@ void OpenALStream::Update()
   m_sound_sync_event.Set();
 }
 
-void OpenALStream::Clear(bool mute)
-{
-  m_muted = mute;
-
-  if (m_muted)
-  {
-    for (int i = 0; i < OAL_NUM_SOURCES; ++i)
-    {
-      palSourceStop(m_sources[i]);
-    }
-  }
-  else
-  {
-    for (int i = 0; i < OAL_NUM_SOURCES; ++i)
-    {
-      palSourcePlay(m_sources[i]);
-    }
-  }
-}
-
 static ALenum CheckALError(const char* desc)
 {
   ALenum err = palGetError();
@@ -199,6 +181,22 @@ static ALenum CheckALError(const char* desc)
   }
 
   return err;
+}
+
+void OpenALStream::Clear(bool mute)
+{
+  m_muted = mute;
+
+  if (m_muted)
+  {
+    palSourceStopv(OAL_NUM_SOURCES, m_sources.data());
+    CheckALError("stopping sources playback");
+  }
+  else
+  {
+    palSourcePlayv(OAL_NUM_SOURCES, m_sources.data());
+    CheckALError("starting sources playback");
+  }
 }
 
 static bool IsCreativeXFi()
