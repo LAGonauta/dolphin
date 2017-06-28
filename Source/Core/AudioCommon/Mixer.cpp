@@ -176,7 +176,7 @@ unsigned int Mixer::MixDMA(short* samples, unsigned int num_samples, bool consid
   return num_samples;
 }
 
-int Mixer::GetDMASampleRate()
+unsigned int Mixer::GetDMASampleRate()
 {
   return m_dma_mixer.GetInputSampleRate();
 }
@@ -193,7 +193,7 @@ unsigned int Mixer::MixStreaming(short* samples, unsigned int num_samples,
   return num_samples;
 }
 
-int Mixer::GetStreamingSampleRate()
+unsigned int Mixer::GetStreamingSampleRate()
 {
   return m_streaming_mixer.GetInputSampleRate();
 }
@@ -210,7 +210,7 @@ unsigned int Mixer::MixWiiMote(short* samples, unsigned int num_samples, bool co
   return num_samples;
 }
 
-int Mixer::GetWiiMoteSampleRate()
+unsigned int Mixer::GetWiiMoteSampleRate()
 {
   return m_wiimote_speaker_mixer.GetInputSampleRate();
 }

@@ -42,7 +42,8 @@ static HMODULE s_openal_dll = nullptr;
   X(alSourceQueueBuffers)                                                                          \
   X(alSourceStop)                                                                                  \
   X(alSourceUnqueueBuffers)                                                                        \
-  X(alGetEnumValue)
+  X(alGetEnumValue)                                                                                \
+  X(alGetProcAddress)
 
 // Create func_t function pointer type and declare a nullptr-initialized static variable of that
 // type named "pfunc".
@@ -194,7 +195,7 @@ static ALenum CheckALError(const char* desc)
 
   if (err != AL_NO_ERROR)
   {
-    ERROR_LOG(AUDIO, "Error %s: %08x %s", desc, err, alGetString(err));
+    ERROR_LOG(AUDIO, "Error %s: %08x %s", desc, err, palGetString(err));
   }
 
   return err;
@@ -224,6 +225,8 @@ void OpenALStream::SoundLoop()
   frequency[1] = m_mixer->GetStreamingSampleRate();
   frequency[2] = m_mixer->GetWiiMoteSampleRate();
 
+  // Clear error state before querying or else we get false positives.
+  ALenum err = palGetError();
   std::array<u32, OAL_NUM_SOURCES> frames_per_buffer;
   for (int i = 0; i < OAL_NUM_SOURCES; ++i)
   {
@@ -237,10 +240,11 @@ void OpenALStream::SoundLoop()
       frames_per_buffer[i] = frequency[i] / 1000 * 1 / OAL_BUFFERS;
     }
 
-  if (frames_per_buffer[i] > OAL_MAX_FRAMES)
-  {
-    frames_per_buffer[i] = OAL_MAX_FRAMES;
-  }
+
+    if (frames_per_buffer[i] > OAL_MAX_FRAMES)
+    {
+      frames_per_buffer[i] = OAL_MAX_FRAMES;
+    }
 
     // DPL2 needs a minimum number of samples to work (FWRDURATION) (on any sample rate, or needs
     // only 5ms of data? WiiMote should not use DPL2)
@@ -249,38 +253,35 @@ void OpenALStream::SoundLoop()
       frames_per_buffer[i] = 240;
     }
 
-  INFO_LOG(AUDIO, "Using %d buffers, each with %d audio frames for a total of %d.", OAL_BUFFERS,
-           frames_per_buffer[i], frames_per_buffer[i] * OAL_BUFFERS);
+    INFO_LOG(AUDIO, "Using %d buffers, each with %d audio frames for a total of %d.", OAL_BUFFERS,
+      frames_per_buffer[i], frames_per_buffer[i] * OAL_BUFFERS);
 
-  // Should we make these larger just in case the mixer ever sends more samples
-  // than what we request?
-  m_realtime_buffers[i].resize(frames_per_buffer[i] * STEREO_CHANNELS);
-  m_sources[i] = 0;
+    // Should we make these larger just in case the mixer ever sends more samples
+    // than what we request?
+    m_realtime_buffers[i].resize(frames_per_buffer[i] * STEREO_CHANNELS);
+    m_sources[i] = 0;
 
-  // Clear error state before querying or else we get false positives.
-  ALenum err = palGetError();
+    // Generate some AL Buffers for streaming
+    palGenBuffers(OAL_BUFFERS, (ALuint*)m_buffers[i].data());
+    err = CheckALError("generating buffers");
 
-  // Generate some AL Buffers for streaming
-  palGenBuffers(OAL_BUFFERS, (ALuint*)m_buffers[i].data());
-  err = CheckALError("generating buffers");
+    // Force disable X-RAM, we do not want it for streaming sources
+    if (palIsExtensionPresent("EAX-RAM"))
+    {
+      EAXSetBufferMode eaxSetBufferMode;
+      eaxSetBufferMode = (EAXSetBufferMode)palGetProcAddress("EAXSetBufferMode");
+      bool status = eaxSetBufferMode(OAL_BUFFERS, m_buffers[i].data(), palGetEnumValue("AL_STORAGE_ACCESSIBLE"));
+      if (status == false)
+        ERROR_LOG(AUDIO, "Error setting-up X-RAM mode.");
+    }
 
-  // Force disable X-RAM, we do not want it for streaming sources
-  if (alIsExtensionPresent("EAX-RAM"))
-  {
-    EAXSetBufferMode eaxSetBufferMode;
-    eaxSetBufferMode = (EAXSetBufferMode)alGetProcAddress("EAXSetBufferMode");
-    bool status = eaxSetBufferMode(OAL_BUFFERS, m_buffers[i].data(), palGetEnumValue("AL_STORAGE_ACCESSIBLE"));
-    if (status == false)
-      ERROR_LOG(AUDIO, "Error setting-up X-RAM mode.");
+    // Generate a Source to playback the Buffers
+    palGenSources(1, &m_sources[i]);
+    err = CheckALError("generating sources");
+
+    // Set the default sound volume as saved in the config file.
+    palSourcef(m_sources[i], AL_GAIN, m_volume);
   }
-
-  // Generate a Source to playback the Buffers
-  palGenSources(1, &m_sources[i]);
-  err = CheckALError("generating sources");
-
-  // Set the default sound volume as saved in the config file.
-  palSourcef(m_sources[i], AL_GAIN, m_volume);
-
   // TODO: Error handling
   // ALenum err = alGetError();
 
@@ -293,6 +294,37 @@ void OpenALStream::SoundLoop()
     // Use mixing only for stereo
     if (use_surround)
     {
+      float rate = m_mixer->GetCurrentSpeed();
+      // Place a lower limit of 10% speed.  When a game boots up, there will be
+      // many silence samples.  These do not need to be timestretched.
+      if (SConfig::GetInstance().m_audio_stretch)
+      {
+        palSourcef(m_sources[0], AL_PITCH, 1.0f);
+      }
+      else if (rate > 0.10)
+      {
+        palSourcef(m_sources[0], AL_PITCH, rate);
+      }
+
+      // Block until we have a free buffer
+      int num_buffers_processed;
+      palGetSourcei(m_sources[0], AL_BUFFERS_PROCESSED, &num_buffers_processed);
+      if (num_buffers_queued[0] == OAL_BUFFERS && !num_buffers_processed)
+      {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        continue;
+      }
+
+      // Remove the Buffer from the Queue.
+      if (num_buffers_processed)
+      {
+        std::array<ALuint, OAL_BUFFERS> unqueued_buffer_ids;
+        palSourceUnqueueBuffers(m_sources[0], num_buffers_processed, unqueued_buffer_ids.data());
+        err = CheckALError("unqueuing buffers");
+
+        num_buffers_queued[0] -= num_buffers_processed;
+      }
+
       unsigned int min_frames = frames_per_buffer[0];
       std::array<float, OAL_MAX_FRAMES * SURROUND_CHANNELS> dpl2;
       u32 rendered_frames = m_mixer->MixSurround(dpl2.data(), min_frames);
@@ -369,7 +401,7 @@ void OpenALStream::SoundLoop()
       num_buffers_queued[0]++;
       next_buffer[0] = (next_buffer[0] + 1) % OAL_BUFFERS;
 
-      alGetSourcei(m_sources[0], AL_SOURCE_STATE, &state[0]);
+      palGetSourcei(m_sources[0], AL_SOURCE_STATE, &state[0]);
       if (state[0] != AL_PLAYING)
       {
         // Buffer underrun occurred, resume playback
@@ -438,11 +470,11 @@ void OpenALStream::SoundLoop()
         // many silence samples.  These do not need to be timestretched.
         if (SConfig::GetInstance().m_audio_stretch)
         {
-          alSourcef(m_sources[i], AL_PITCH, 1.0f);
+          palSourcef(m_sources[nsource], AL_PITCH, 1.0f);
         }
         else if (rate > 0.10)
         {
-          alSourcef(m_sources[i], AL_PITCH, rate);
+          palSourcef(m_sources[nsource], AL_PITCH, rate);
         }
 
         // Block until we have a free buffer
@@ -483,7 +515,7 @@ void OpenALStream::SoundLoop()
           break;
         }
 
-        alBufferData(m_buffers[nsource][next_buffer[nsource]], AL_FORMAT_STEREO16,
+        palBufferData(m_buffers[nsource][next_buffer[nsource]], AL_FORMAT_STEREO16,
           m_realtime_buffers[nsource].data(), rendered_frames * FRAME_STEREO_SHORT,
           frequency[nsource]);
 
@@ -493,7 +525,7 @@ void OpenALStream::SoundLoop()
         num_buffers_queued[nsource]++;
         next_buffer[nsource] = (next_buffer[nsource] + 1) % OAL_BUFFERS;
 
-        alGetSourcei(m_sources[nsource], AL_SOURCE_STATE, &state[nsource]);
+        palGetSourcei(m_sources[nsource], AL_SOURCE_STATE, &state[nsource]);
         if (state[nsource] != AL_PLAYING)
         {
           // Buffer underrun occurred, resume playback
