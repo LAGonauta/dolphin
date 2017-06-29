@@ -246,7 +246,7 @@ void OpenALStream::SoundLoop()
 
     // DPL2 needs a minimum number of samples to work (FWRDURATION) (on any sample rate, or needs
     // only 5ms of data? WiiMote should not use DPL2)
-    if (surround_capable && frames_per_buffer[i] < 240 && i != 2)
+    if (use_surround && frames_per_buffer[i] < 240 && i != 2)
     {
       frames_per_buffer[i] = 240;
     }
@@ -513,9 +513,29 @@ void OpenALStream::SoundLoop()
           break;
         }
 
-        palBufferData(m_buffers[nsource][next_buffer[nsource]], AL_FORMAT_STEREO16,
-          m_realtime_buffers[nsource].data(), rendered_frames * FRAME_STEREO_SHORT,
-          frequency[nsource]);
+        if (!rendered_frames)
+          continue;
+
+        // WiiMote data is too small for the X-Fi on low latency values, convert it to 32-bit so it gets larger
+        if (nsource == 2 && fixed32_capable)
+        {
+          std::array<long, OAL_MAX_FRAMES * STEREO_CHANNELS> wiimote_audio_data;
+          long ratio = std::numeric_limits<long>::max() / std::numeric_limits<short>::max();
+          for (int i = 0, total_samples = rendered_frames * STEREO_CHANNELS; i < total_samples; ++i)
+          {
+            wiimote_audio_data[i] = m_realtime_buffers[nsource][i] * ratio;
+          }
+
+          palBufferData(m_buffers[nsource][next_buffer[nsource]], AL_FORMAT_STEREO32,
+            wiimote_audio_data.data(), rendered_frames * FRAME_STEREO_SHORT * 2,
+            frequency[nsource]);
+        }
+        else
+        {
+          palBufferData(m_buffers[nsource][next_buffer[nsource]], AL_FORMAT_STEREO16,
+            m_realtime_buffers[nsource].data(), rendered_frames * FRAME_STEREO_SHORT,
+            frequency[nsource]);
+        }
 
         palSourceQueueBuffers(m_sources[nsource], 1, &m_buffers[nsource][next_buffer[nsource]]);
         err = CheckALError("queuing buffers");
