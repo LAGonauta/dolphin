@@ -8,6 +8,7 @@
 #include <atomic>
 
 #include "AudioCommon/AudioStretcher.h"
+#include "AudioCommon/SurroundDecoder.h"
 #include "AudioCommon/WaveFile.h"
 #include "Common/CommonTypes.h"
 
@@ -47,6 +48,9 @@ private:
   static constexpr float CONTROL_FACTOR = 0.2f;
   static constexpr u32 CONTROL_AVG = 32;  // In freq_shift per FIFO size offset
 
+  const unsigned int SURROUND_CHANNELS = 6;
+  const unsigned int SURROUND_BLOCK_SIZE = 512;
+
   class MixerFifo final
   {
   public:
@@ -80,8 +84,8 @@ private:
 
   bool m_is_stretching = false;
   AudioCommon::AudioStretcher m_stretcher;
+  AudioCommon::SurroundDecoder m_surround_decoder;
   std::array<short, MAX_SAMPLES * 2> m_scratch_buffer;
-  std::array<float, MAX_SAMPLES * 2> m_float_conversion_buffer;
 
   WaveFileWriter m_wave_writer_dtk;
   WaveFileWriter m_wave_writer_dsp;
