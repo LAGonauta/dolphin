@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "AudioCommon/DPL2Decoder.h"
 #include "Common/CommonTypes.h"
 #include "Common/Logging/Log.h"
 #include "Common/MathUtil.h"
@@ -17,7 +18,14 @@ Mixer::Mixer(unsigned int BackendSampleRate)
     : m_sampleRate(BackendSampleRate), m_stretcher(BackendSampleRate)
 {
   INFO_LOG(AUDIO_INTERFACE, "Mixer is initialized");
-  m_fsdecoder.Init(cs_5point1, SURROUND_FRAMES_PER_CALL, m_sampleRate);
+  if (SConfig::GetInstance().bLegacyDPL2Decoder)
+  {
+    DPL2Reset();
+  }
+  else
+  {
+    m_fsdecoder.Init(cs_5point1, SURROUND_FRAMES_PER_CALL_FS, m_sampleRate);
+  }
 }
 
 Mixer::~Mixer()
@@ -153,69 +161,99 @@ unsigned int Mixer::Mix(short* samples, unsigned int num_samples)
   return num_samples;
 }
 
-unsigned int Mixer::MixSurround(float* samples, unsigned int num_samples)
+unsigned int Mixer::MixSurround(float* samples, unsigned int num_frames)
 {
-  if (!num_samples)
+  if (!num_frames)
     return 0;
 
-  memset(samples, 0, num_samples * SURROUND_CHANNELS * sizeof(float));
+  memset(samples, 0, num_frames * SURROUND_CHANNELS * sizeof(float));
 
-  // Calculate how many times we need to request the FS decoder
-  size_t num_fs_dec_requests = 0;
-  if (m_floatsurround_buffer.size() < static_cast<size_t>(num_samples * SURROUND_CHANNELS))
+  if (SConfig::GetInstance().bLegacyDPL2Decoder)
   {
-    int num_frames_remaining =
-        num_samples - static_cast<u32>(m_floatsurround_buffer.size() / SURROUND_CHANNELS);
-    while (num_frames_remaining > 0)
+    if (num_frames < MINIMUM_SURROUND_FRAMES_PER_CALL_FFDSHOW)
     {
-      ++num_fs_dec_requests;
-      num_frames_remaining = num_frames_remaining - SURROUND_FRAMES_PER_CALL;
+      num_frames = MINIMUM_SURROUND_FRAMES_PER_CALL_FFDSHOW;
     }
-  }
 
-  while (num_fs_dec_requests > 0)
-  {
-    // Mix() may also use m_scratch_buffer internally, but is safe because it alternates reads and
-    // writes.
-    Mix(m_scratch_buffer.data(), SURROUND_FRAMES_PER_CALL);
-
-    // We need to drop any sample after SURROUND_FRAMES_PER_CALL, unless we add another FIFO here
-    for (u32 i = 0; i < SURROUND_FRAMES_PER_CALL * 2; ++i)
+    unsigned int available_frames = Mix(m_scratch_buffer.data(), num_frames);
+    for (unsigned int i = 0; i < available_frames * 2; ++i)
     {
       m_float_conversion_buffer[i] =
           m_scratch_buffer[i] / static_cast<float>(std::numeric_limits<short>::max());
     }
 
-    // FSDPL2Decode
-    float* dpl2_fs = m_fsdecoder.decode(m_float_conversion_buffer.data());
+    DPL2Decode(m_float_conversion_buffer.data(), available_frames, samples);
 
-    // Add to queue and fix channel mapping
-    // Maybe modify FreeSurround to output the correct mapping?
-    // FreeSurround:
-    // FL | FC | FR | BL | BR | LFE
-    // Most backends:
-    // FL | FR | FC | LFE | BL | BR
-    for (u32 i = 0; i < SURROUND_FRAMES_PER_CALL; ++i)
+    // zero-out the subwoofer channel - FFDShows's DPL2 decoder generates a pretty
+    // good 5.0 but not a good 5.1 output.
+    // DPL2Decode output: LEFTFRONT, RIGHTFRONT, CENTREFRONT, (sub), LEFTREAR, RIGHTREAR
+    for (unsigned int i = 0; i < available_frames; ++i)
     {
-      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 0 /*LEFTFRONT*/]);
-      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 2 /*RIGHTFRONT*/]);
-      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 1 /*CENTREFRONT*/]);
-      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 5 /*sub/lfe*/]);
-      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 3 /*LEFTREAR*/]);
-      m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 4 /*RIGHTREAR*/]);
+      samples[i * SURROUND_CHANNELS + 3 /*sub/lfe*/] = 0.0f;
     }
 
-    --num_fs_dec_requests;
+    return available_frames;
   }
-
-  // Copy to output array with desired num_samples
-  for (u32 i = 0, num_samples_output = num_samples * SURROUND_CHANNELS; i < num_samples_output; ++i)
+  else
   {
-    samples[i] = m_floatsurround_buffer.front();
-    m_floatsurround_buffer.pop();
-  }
+    // Calculate how many times we need to request the DPLII decoder
+    size_t num_dec_requests = 0;
+    if (m_floatsurround_buffer.size() < static_cast<size_t>(num_frames * SURROUND_CHANNELS))
+    {
+      int num_frames_remaining =
+          num_frames - static_cast<u32>(m_floatsurround_buffer.size() / SURROUND_CHANNELS);
+      while (num_frames_remaining > 0)
+      {
+        ++num_dec_requests;
+        num_frames_remaining = num_frames_remaining - SURROUND_FRAMES_PER_CALL_FS;
+      }
+    }
 
-  return num_samples;
+    while (num_dec_requests > 0)
+    {
+      // Mix() may also use m_scratch_buffer internally, but is safe because it alternates reads and
+      // writes.
+      Mix(m_scratch_buffer.data(), SURROUND_FRAMES_PER_CALL_FS);
+
+      // We need to drop any sample after SURROUND_FRAMES_PER_CALL, unless we add another FIFO here
+      for (u32 i = 0; i < SURROUND_FRAMES_PER_CALL_FS * 2; ++i)
+      {
+        m_float_conversion_buffer[i] =
+            m_scratch_buffer[i] / static_cast<float>(std::numeric_limits<short>::max());
+      }
+
+      // FSDPL2Decode
+      float* dpl2_fs = m_fsdecoder.decode(m_float_conversion_buffer.data());
+
+      // Add to queue and fix channel mapping
+      // Maybe modify FreeSurround to output the correct mapping?
+      // FreeSurround:
+      // FL | FC | FR | BL | BR | LFE
+      // Most backends:
+      // FL | FR | FC | LFE | BL | BR
+      for (u32 i = 0; i < SURROUND_FRAMES_PER_CALL_FS; ++i)
+      {
+        m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 0 /*LEFTFRONT*/]);
+        m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 2 /*RIGHTFRONT*/]);
+        m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 1 /*CENTREFRONT*/]);
+        m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 5 /*sub/lfe*/]);
+        m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 3 /*LEFTREAR*/]);
+        m_floatsurround_buffer.push(dpl2_fs[i * SURROUND_CHANNELS + 4 /*RIGHTREAR*/]);
+      }
+
+      --num_dec_requests;
+    }
+
+    // Copy to output array with desired num_frames
+    for (u32 i = 0, num_samples_output = num_frames * SURROUND_CHANNELS; i < num_samples_output;
+         ++i)
+    {
+      samples[i] = m_floatsurround_buffer.front();
+      m_floatsurround_buffer.pop();
+    }
+
+    return num_frames;
+  }
 }
 
 void Mixer::MixerFifo::PushSamples(const short* samples, unsigned int num_samples)

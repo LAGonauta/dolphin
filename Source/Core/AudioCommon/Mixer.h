@@ -50,7 +50,10 @@ private:
   static constexpr u32 CONTROL_AVG = 32;  // In freq_shift per FIFO size offset
 
   DPL2FSDecoder m_fsdecoder;
-  const unsigned int SURROUND_FRAMES_PER_CALL = 512;
+  // FFDShow's DPL2 decoder needs at least 240 frames to work, while
+  // the FS decoder needs at least 256, but 512 has better quality.
+  const unsigned int SURROUND_FRAMES_PER_CALL_FS = 512;
+  const unsigned int MINIMUM_SURROUND_FRAMES_PER_CALL_FFDSHOW = 240;
   const unsigned int SURROUND_CHANNELS = 6;
   std::queue<float> m_floatsurround_buffer;
 
