@@ -7,11 +7,11 @@
 #include <FreeSurround/FreeSurroundDecoder.h>
 #include <array>
 #include <atomic>
-#include <queue>
 
 #include "AudioCommon/AudioStretcher.h"
 #include "AudioCommon/WaveFile.h"
 #include "Common/CommonTypes.h"
+#include "Common/FixedSizeQueue.h"
 
 class Mixer final
 {
@@ -52,7 +52,7 @@ private:
   DPL2FSDecoder m_fsdecoder;
   const unsigned int SURROUND_FRAMES_PER_CALL = 512;
   const unsigned int SURROUND_CHANNELS = 6;
-  std::queue<float> m_floatsurround_buffer;
+  FixedSizeQueue<float, 32768> m_floatsurround_buffer;
 
   class MixerFifo final
   {

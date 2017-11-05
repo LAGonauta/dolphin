@@ -211,8 +211,7 @@ unsigned int Mixer::MixSurround(float* samples, unsigned int num_samples)
   // Copy to output array with desired num_samples
   for (u32 i = 0, num_samples_output = num_samples * SURROUND_CHANNELS; i < num_samples_output; ++i)
   {
-    samples[i] = m_floatsurround_buffer.front();
-    m_floatsurround_buffer.pop();
+    samples[i] = m_floatsurround_buffer.pop_front();
   }
 
   return num_samples;
