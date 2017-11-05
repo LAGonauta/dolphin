@@ -3,7 +3,6 @@ set(SRCS
   AudioStretcher.cpp
   CubebStream.cpp
   CubebUtils.cpp
-  DPL2Decoder.cpp
   Mixer.cpp
   WaveFile.cpp
   NullSoundStream.cpp
