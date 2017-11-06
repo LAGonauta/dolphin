@@ -4,14 +4,13 @@
 
 #pragma once
 
-#include <FreeSurround/FreeSurroundDecoder.h>
 #include <array>
 #include <atomic>
 
+#include "AudioCommon/SurroundDecoder.h"
 #include "AudioCommon/AudioStretcher.h"
 #include "AudioCommon/WaveFile.h"
 #include "Common/CommonTypes.h"
-#include "Common/FixedSizeQueue.h"
 
 class Mixer final
 {
@@ -49,10 +48,7 @@ private:
   static constexpr float CONTROL_FACTOR = 0.2f;
   static constexpr u32 CONTROL_AVG = 32;  // In freq_shift per FIFO size offset
 
-  DPL2FSDecoder m_fsdecoder;
-  const unsigned int SURROUND_FRAMES_PER_CALL = 512;
   const unsigned int SURROUND_CHANNELS = 6;
-  FixedSizeQueue<float, 32768> m_floatsurround_buffer;
 
   class MixerFifo final
   {
@@ -87,8 +83,8 @@ private:
 
   bool m_is_stretching = false;
   AudioCommon::AudioStretcher m_stretcher;
+  AudioCommon::SurroundDecoder m_decoder;
   std::array<short, MAX_SAMPLES * 2> m_scratch_buffer;
-  std::array<float, MAX_SAMPLES * 2> m_float_conversion_buffer;
 
   WaveFileWriter m_wave_writer_dtk;
   WaveFileWriter m_wave_writer_dsp;

@@ -43,6 +43,7 @@
     <ClCompile Include="Mixer.cpp" />
     <ClCompile Include="NullSoundStream.cpp" />
     <ClCompile Include="OpenALStream.cpp" />
+    <ClCompile Include="SurroundDecoder.cpp" />
     <ClCompile Include="WaveFile.cpp" />
     <ClCompile Include="XAudio2Stream.cpp" />
     <ClCompile Include="XAudio2_7Stream.cpp">
@@ -61,6 +62,7 @@
     <ClInclude Include="OpenSLESStream.h" />
     <ClInclude Include="PulseAudioStream.h" />
     <ClInclude Include="SoundStream.h" />
+    <ClInclude Include="SurroundDecoder.h" />
     <ClInclude Include="WaveFile.h" />
     <ClInclude Include="XAudio2Stream.h" />
     <ClInclude Include="XAudio2_7Stream.h" />

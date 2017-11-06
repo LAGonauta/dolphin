@@ -4,6 +4,7 @@ set(SRCS
   CubebStream.cpp
   CubebUtils.cpp
   Mixer.cpp
+  SurroundDecoder.cpp
   WaveFile.cpp
   NullSoundStream.cpp
 )
@@ -68,4 +69,4 @@ if(WIN32)
   endif()
 endif()
 
-target_link_libraries(audiocommon PUBLIC FreeSurround PRIVATE cubeb SoundTouch)
+target_link_libraries(audiocommon PRIVATE cubeb SoundTouch FreeSurround)
