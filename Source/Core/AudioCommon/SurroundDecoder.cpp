@@ -5,6 +5,7 @@
 #include <limits>
 
 #include "AudioCommon/SurroundDecoder.h"
+#include "FreeSurround/FreeSurroundDecoder.h"
 
 namespace AudioCommon
 {
@@ -12,7 +13,7 @@ SurroundDecoder::SurroundDecoder(uint32_t sample_rate, uint32_t frame_block_size
 {
   m_sample_rate = sample_rate;
   m_frame_block_size = frame_block_size;
-  m_fsdecoder = std::make_unique<DPL2FSDecoder>();
+  m_fsdecoder = std::make_shared<DPL2FSDecoder>();
   m_fsdecoder->Init(cs_5point1, m_frame_block_size, m_sample_rate);
 }
 

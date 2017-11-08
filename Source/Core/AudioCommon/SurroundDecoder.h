@@ -8,7 +8,8 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/FixedSizeQueue.h"
-#include "FreeSurround/FreeSurroundDecoder.h"
+
+class DPL2FSDecoder;
 
 namespace AudioCommon
 {
@@ -25,7 +26,7 @@ private:
   uint32_t m_sample_rate;
   uint32_t m_frame_block_size;
 
-  std::unique_ptr<DPL2FSDecoder> m_fsdecoder;
+  std::shared_ptr<DPL2FSDecoder> m_fsdecoder;
   const uint32_t STEREO_CHANNELS = 2;
   const uint32_t SURROUND_CHANNELS = 6;
   std::array<float, 32768> m_float_conversion_buffer;
