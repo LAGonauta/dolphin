@@ -281,6 +281,24 @@ void OpenALStream::SoundLoop()
   unsigned int num_buffers_queued = 0;
   ALint state = 0;
 
+  if (use_surround)
+  {
+    m_format = AL_FORMAT_51CHN16;
+    m_frame_size = FRAME_SURROUND_SHORT;
+    if (float32_capable || fixed32_capable)
+    {
+      m_format = AL_FORMAT_51CHN32;
+      m_frame_size = FRAME_SURROUND_FLOAT;
+      if (fixed32_capable)
+        m_frame_size = FRAME_SURROUND_INT32;
+    }
+  }
+  else
+  {
+    m_format = AL_FORMAT_STEREO16;
+    m_frame_size = FRAME_STEREO_SHORT;
+  }
+
   while (m_run_thread.IsSet())
   {
     // Block until we have a free buffer
@@ -303,11 +321,12 @@ void OpenALStream::SoundLoop()
     }
 
     unsigned int min_frames = frames_per_buffer;
-
+    u32 rendered_frames = 0;
+    ALvoid* sound_data;
     if (use_surround)
     {
       std::array<float, OAL_MAX_FRAMES * SURROUND_CHANNELS> dpl2;
-      u32 rendered_frames = m_mixer->MixSurround(dpl2.data(), min_frames);
+      rendered_frames = m_mixer->MixSurround(dpl2.data(), min_frames);
 
       if (rendered_frames < min_frames)
         continue;
@@ -323,10 +342,9 @@ void OpenALStream::SoundLoop()
 
       if (float32_capable)
       {
-        palBufferData(m_buffers[next_buffer], AL_FORMAT_51CHN32, dpl2.data(),
-                      rendered_frames * FRAME_SURROUND_FLOAT, frequency);
+        sound_data = reinterpret_cast<ALvoid*>(dpl2.data());
       }
-      else if (fixed32_capable)
+      if (fixed32_capable)
       {
         std::array<int, OAL_MAX_FRAMES * SURROUND_CHANNELS> surround_int32;
 
@@ -344,8 +362,7 @@ void OpenALStream::SoundLoop()
             surround_int32[i] = static_cast<int>(dpl2[i]);
         }
 
-        palBufferData(m_buffers[next_buffer], AL_FORMAT_51CHN32, surround_int32.data(),
-                      rendered_frames * FRAME_SURROUND_INT32, frequency);
+        sound_data = reinterpret_cast<ALvoid*>(surround_int32.data());
       }
       else
       {
@@ -362,28 +379,34 @@ void OpenALStream::SoundLoop()
             surround_short[i] = static_cast<int>(dpl2[i]);
         }
 
-        palBufferData(m_buffers[next_buffer], AL_FORMAT_51CHN16, surround_short.data(),
-                      rendered_frames * FRAME_SURROUND_SHORT, frequency);
-      }
-
-      err = CheckALError("buffering data");
-      if (err == AL_INVALID_ENUM)
-      {
-        // 5.1 is not supported by the host, fallback to stereo
-        WARN_LOG(AUDIO,
-                 "Unable to set 5.1 surround mode.  Updating OpenAL Soft might fix this issue.");
-        use_surround = false;
+        sound_data = reinterpret_cast<ALvoid*>(surround_short.data());
       }
     }
     else
     {
-      u32 rendered_frames = m_mixer->Mix(m_realtime_buffer.data(), min_frames);
+      rendered_frames = m_mixer->Mix(m_realtime_buffer.data(), min_frames);
 
       if (!rendered_frames)
         continue;
 
-      palBufferData(m_buffers[next_buffer], AL_FORMAT_STEREO16, m_realtime_buffer.data(),
-                    rendered_frames * FRAME_STEREO_SHORT, frequency);
+      sound_data = reinterpret_cast<ALvoid*>(m_realtime_buffer.data());
+    }
+
+    palBufferData(m_buffers[next_buffer], m_format, sound_data,
+                  rendered_frames * m_frame_size, frequency);
+
+    err = CheckALError("buffering data");
+    if (err != AL_NO_ERROR)
+    {
+      WARN_LOG(AUDIO,
+        "Unable to buffer audio data.");
+      if (err == AL_INVALID_ENUM && use_surround)
+      {
+        // 5.1 is not supported by the host, fallback to stereo
+        WARN_LOG(AUDIO,
+          "Unable to set 5.1 surround mode. Updating OpenAL Soft might fix this issue.");
+        use_surround = false;
+      }
     }
 
     palSourceQueueBuffers(m_source, 1, &m_buffers[next_buffer]);

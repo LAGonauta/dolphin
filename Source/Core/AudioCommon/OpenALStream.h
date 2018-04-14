@@ -74,6 +74,8 @@ private:
   std::array<ALuint, OAL_BUFFERS> m_buffers;
   ALuint m_source;
   ALfloat m_volume;
+  ALenum m_format;
+  u32 m_frame_size;
 
 #endif  // _WIN32
 };
