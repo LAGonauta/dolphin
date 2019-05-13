@@ -12,9 +12,10 @@
 
 namespace AudioCommon
 {
-AudioStretcher::AudioStretcher(unsigned int sample_rate) : m_sample_rate(sample_rate)
+AudioStretcher::AudioStretcher(unsigned int sample_rate, unsigned int num_channels)
+    : m_sample_rate(sample_rate), m_num_channels(num_channels)
 {
-  m_sound_touch.setChannels(2);
+  m_sound_touch.setChannels(num_channels);
   m_sound_touch.setSampleRate(sample_rate);
   m_sound_touch.setPitch(1.0);
   m_sound_touch.setTempo(1.0);
@@ -74,16 +75,19 @@ void AudioStretcher::GetStretchedSamples(short* out, unsigned int num_out)
 
   if (samples_received != 0)
   {
-    m_last_stretched_sample[0] = out[samples_received * 2 - 2];
-    m_last_stretched_sample[1] = out[samples_received * 2 - 1];
+    for (size_t i = 0; i < m_num_channels; ++i)
+    {
+      m_last_stretched_sample[i] = out[samples_received * m_num_channels - m_num_channels - i];
+    }
   }
 
   // Perform padding if we've run out of samples.
   for (size_t i = samples_received; i < num_out; i++)
   {
-    out[i * 2 + 0] = m_last_stretched_sample[0];
-    out[i * 2 + 1] = m_last_stretched_sample[1];
+    for (size_t j = 0; j < m_num_channels; ++j)
+    {
+      out[i * 2 + j] = m_last_stretched_sample[j];
+    }
   }
 }
-
 }  // namespace AudioCommon

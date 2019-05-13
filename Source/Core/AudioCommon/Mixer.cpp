@@ -15,7 +15,7 @@
 #include "Core/ConfigManager.h"
 
 Mixer::Mixer(unsigned int BackendSampleRate)
-    : m_sampleRate(BackendSampleRate), m_stretcher(BackendSampleRate),
+    : m_sampleRate(BackendSampleRate), m_stretcher(BackendSampleRate, 2),
       m_surround_decoder(BackendSampleRate, SURROUND_BLOCK_SIZE)
 {
   INFO_LOG(AUDIO_INTERFACE, "Mixer is initialized");
@@ -124,14 +124,14 @@ unsigned int Mixer::MixerFifo::Mix(short* samples, unsigned int numSamples,
   return actual_sample_count;
 }
 
-unsigned int Mixer::Mix(short* samples, unsigned int num_samples)
+unsigned int Mixer::InternalMix(short* samples, unsigned int num_samples, bool is_stretching)
 {
   if (!samples)
     return 0;
 
   memset(samples, 0, num_samples * 2 * sizeof(short));
 
-  if (SConfig::GetInstance().m_audio_stretch)
+  if (is_stretching)
   {
     unsigned int available_samples =
         std::min(m_dma_mixer.AvailableSamples(), m_streaming_mixer.AvailableSamples());
@@ -142,13 +142,7 @@ unsigned int Mixer::Mix(short* samples, unsigned int num_samples)
     m_streaming_mixer.Mix(m_scratch_buffer.data(), available_samples, false);
     m_wiimote_speaker_mixer.Mix(m_scratch_buffer.data(), available_samples, false);
 
-    if (!m_is_stretching)
-    {
-      m_stretcher.Clear();
-      m_is_stretching = true;
-    }
-    m_stretcher.ProcessSamples(m_scratch_buffer.data(), available_samples, num_samples);
-    m_stretcher.GetStretchedSamples(samples, num_samples);
+    return available_samples;
   }
   else
   {
@@ -161,10 +155,39 @@ unsigned int Mixer::Mix(short* samples, unsigned int num_samples)
   return num_samples;
 }
 
+unsigned int Mixer::Stretch(short* samples, unsigned int available_samples,
+                            unsigned int out_samples)
+{
+  if (!m_is_stretching)
+  {
+    m_stretcher.Clear();
+    m_is_stretching = true;
+  }
+  m_stretcher.ProcessSamples(m_scratch_buffer.data(), available_samples, out_samples);
+  m_stretcher.GetStretchedSamples(samples, out_samples);
+
+  return out_samples;
+}
+
+unsigned int Mixer::Mix(short* samples, unsigned int num_samples)
+{
+  bool is_stretching = SConfig::GetInstance().m_audio_stretch;
+  unsigned int available_samples = InternalMix(samples, num_samples, is_stretching);
+
+  if (is_stretching && available_samples > 0)
+  {
+    Stretch(samples, available_samples, num_samples);
+  }
+
+  return available_samples;
+}
+
 unsigned int Mixer::MixSurround(float* samples, unsigned int num_samples)
 {
-  if (!num_samples)
+  if (!samples)
     return 0;
+
+  std::vector<short> samples;
 
   memset(samples, 0, num_samples * SURROUND_CHANNELS * sizeof(float));
 

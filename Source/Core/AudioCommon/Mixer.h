@@ -47,6 +47,9 @@ public:
   void UpdateSpeed(float val) { m_speed.store(val); }
 
 private:
+  unsigned int InternalMix(short* samples, unsigned int numSamples, bool is_stretching);
+  unsigned int Stretch(short* samples, unsigned int available_samples, unsigned int out_samples);
+
   static constexpr u32 MAX_SAMPLES = 1024 * 4;  // 128 ms
   static constexpr u32 INDEX_MASK = MAX_SAMPLES * 2 - 1;
   static constexpr int MAX_FREQ_SHIFT = 200;  // Per 32000 Hz
